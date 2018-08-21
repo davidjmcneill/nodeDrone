@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html>
+
+    <head>
+        <title>Quad Control</title>
+        <style>
+            body { margin: 0; }
+            canvas { width: 100%; height: 100% }
+        </style>
+        <!-- include socket.io client side script -->
+        <script type="text/javascript" src="libs/socket.io.js"></script>
+        <script type="text/javascript" src="libs/jquery.min.js"></script>
+        <script type="text/javascript" src="libs/moment.js"></script>
+        <script>
+            var socket = io.connect();
+            
+            socket.on('disconnect', function(){
+            //clean all intervals
+            });
+            
+            //get altitude measurement every second
+            setInterval(function() {
+                socket.emit("altitude",true);
+            }, 800);
+            
+            //check battery life every 300ms
+            setInterval(function() {
+                socket.emit("battery",true);
+            }, 300);
+            
+            //check distance to ground (ultrasonic sensor) every half second
+            setInterval(function() {
+                socket.emit("D2G",true);
+            }, 500);
+            
+            //check quad orientation every half second
+            setInterval(function() {
+                socket.emit("orientation",true);
+            }, 500);
+            
+            //listen and update battery life
+            socket.on('battery', function(voltage) {
+                var vmax = 2.36, vmin = 2.12;
+                var vdiff = vmax-vmin;
+                var percent = Math.round((1-((vmax-voltage)/vdiff))*100);
+                if (percent > 100) { percent = 100; }
+                if (percent < 0) { percent = 0; }
+
+                $("#battery_life").html("Battery Life: "+voltage.toFixed(2)+" ("+percent+"%)");
+            });
+            //listen and update altitude measurement
+            socket.on('altitude', function(pressure) {
+                if (pressure) {
+                    var altitude = 44330 * (1 - Math.pow((pressure/100)/1013.25,(1/5.255)));
+                    $("#altitude").html("Altitude: "+altitude.toFixed(2)+"m</span>");
+                }
+            });
+            //listen and update heading
+            socket.on('mpu9255', function(heading) {
+                if (heading) {
+                    $("#direction").html("("+heading+")");
+                }
+            });
+            
+            //listen and update distance measurement
+            socket.on('D2G', function(distance) {
+                if (distance) {
+                    $("#distance_to_ground").html("Distance to Ground: "+distance.toFixed(2)+"in</span>");
+                }
+            });
+            //listen and append new message to table
+            socket.on('messages', function(data) {
+                if (data) {
+                    //timestamp output = YYYY-MM-DD H:MM:SS
+                    var timestamp = moment().format("YYYY-MM-DD HH:mm:ss");
+                    $("#messages").append("<tr><td>"+timestamp+"</td><td>"+data+"</td></tr>");
+                }
+            });
+
+        </script>
+        <link rel="stylesheet" href="libs/bootstrap.min.css">
+    </head>
+    
+    <body>
+        <div class="row">
+            <div class="col-sm-1">
+                <button id='motor_arm' type='button' class='btn btn-primary' onclick='socket.emit(this.id,true)'>Arm Motors</button>
+            </div>
+            <div class="col-sm-3">
+                <button id='motor1_test' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Test Motor 1</button>
+                <button id='motor2_test' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Test Motor 2</button>
+                <button id='motor3_test' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Test Motor 3</button>
+                <button id='motor4_test' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Test Motor 4</button>
+            </div>
+            <div class="col-sm-3">
+                <button id='liftoff_ground' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Liftoff Ground</button>
+                <button id='landing_gear_deploy' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Deploy Gear</button>
+                <button id='landing_gear_retract' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Retract Gear</button>
+                <button id='altitude_data' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Altitude Data</button>
+            </div>
+            <div class="col-sm-3">
+                <button id='move_north' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Move North</button>
+                <button id='move_east' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Move East</button>
+                <button id='move_south' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Move South</button>
+                <button id='move_west' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Move West</button>
+            </div>
+            <div class="col-sm-2 text-left">
+                <div id='battery_life'></div>
+                <div id='altitude'></div>
+                <div id='distance_to_ground'></div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class='col-sm-4' style='position:relative;width:auto;'>
+                <img class="img-responsive" src="images/prop-rotational-directions.jpg" alt="Quad View">
+                <h4 style='position: absolute;top: 5px;left: 20px;'>M1</h4>
+                <h4 style='position: absolute;top: 0px;left: 45%;'>(Front)</h4>
+                <h4 id='direction' style='position: absolute;top: 15px;left: 47%;'></h4>
+                <h4 style='position: absolute;top: 5px;right: 15px;'>M3</h4>
+                <h4 style='position: absolute;bottom: 5px;left: 20px;'>M4</h4>
+                <h4 style='position: absolute;bottom: 5px;right: 15px;'>M2</h4>
+            </div>
+            <div class="col-sm-6">
+                <table id='messages' class="table table-responsive">
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>Description</th>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </body>
+    
+</html>
