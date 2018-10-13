@@ -15,23 +15,16 @@
             var socket = io.connect();
             
             socket.on('disconnect', function(){
-            //clean all intervals
+            //clear all intervals
             });
+            
+            //check battery on start
+            //socket.emit("battery",true);
             
             //get altitude measurement every second
             setInterval(function() {
                 socket.emit("altitude",true);
             }, 800);
-            
-            //check battery life every 300ms
-            setInterval(function() {
-                socket.emit("battery",true);
-            }, 300);
-            
-            //check distance to ground (ultrasonic sensor) every half second
-            setInterval(function() {
-                socket.emit("D2G",true);
-            }, 500);
             
             //check quad orientation every half second
             setInterval(function() {
@@ -47,6 +40,9 @@
                 if (percent < 0) { percent = 0; }
 
                 $("#battery_life").html("Battery Life: "+voltage.toFixed(2)+" ("+percent+"%)");
+                
+                //check distance to ground (ultrasonic sensor)
+                socket.emit("D2G",true);
             });
             //listen and update altitude measurement
             socket.on('altitude', function(pressure) {
@@ -56,9 +52,57 @@
                 }
             });
             //listen and update heading
-            socket.on('mpu9255', function(heading) {
-                if (heading) {
-                    $("#direction").html("("+heading+")");
+            socket.on('mpu9255', function(pyr) {
+                var direction;
+
+                //Determine Cardinal Directions from heading 
+                //East = 0 degrees, North = 90 degrees, South = -90 degrees, West = 180 degrees
+                //Northeast = 45 degrees, Southeast = -45 degrees, Northwest = 135 degrees, Southwest = -135 degrees
+                if(pyr["heading"] > -30 && pyr["heading"] <= 30) {
+                    //Heading Direction is East
+                    direction = 'E';
+                } else if (pyr["heading"] > -60 && pyr["heading"] <= -30) {
+                    //Heading Direction is SouthEast
+                    direction = 'SE';
+                } else if (pyr["heading"] > -120 && pyr["heading"] <= -60) {
+                    //Heading Direction is South
+                    direction = 'S';
+                } else if (pyr["heading"] > -150 && pyr["heading"] <= -120) {
+                    //Heading Direction is SouthWest
+                    direction = 'SW';
+                } else if (pyr["heading"] > 150 || pyr["heading"] <= -150) {
+                    //Heading Direction is West
+                    direction = 'W';
+                } else if (pyr["heading"] > 120 && pyr["heading"] <= 150) {
+                    //Heading Direction is NorthWest
+                    direction = 'NW';
+                } else if (pyr["heading"] > 60 && pyr["heading"] <= 120) {
+                    //Heading Direction is North
+                    direction = 'N';
+                } else if (pyr["heading"] > 30 && pyr["heading"] <= 60) {
+                    //Heading Direction is NorthEast
+                    direction = 'NE';
+                }
+                $("#direction").html("");
+                if (direction) {
+                    $("#direction").append("("+direction+")");
+                } else {
+                    $("#direction").append(" No Heading");
+                }
+                if (pyr["heading"]) {
+                    $("#direction").append(" Yaw:"+pyr["heading"].toFixed(2)+"&#176;");
+                } else {
+                    $("#direction").append(" No Yaw");
+                }
+                if (pyr["pitch"]) {
+                    $("#direction").append(" Pitch:"+pyr["pitch"].toFixed(2)+"&#176;");
+                } else {
+                    $("#direction").append(" No Pitch");
+                }
+                if (pyr["roll"]) {
+                    $("#direction").append(" Roll:"+pyr["roll"].toFixed(2)+"&#176;");
+                } else {
+                    $("#direction").append(" No Roll");
                 }
             });
             
@@ -67,6 +111,12 @@
                 if (distance) {
                     $("#distance_to_ground").html("Distance to Ground: "+distance.toFixed(2)+"in</span>");
                 }
+                
+                //wait 100ms and restart sequence
+                setTimeout(function() {
+                    socket.emit("battery",true);
+                }, 500);
+                
             });
             //listen and append new message to table
             socket.on('messages', function(data) {
@@ -115,12 +165,12 @@
             <div class='col-sm-4' style='position:relative;width:auto;'>
                 <img class="img-responsive" src="images/prop-rotational-directions.jpg" alt="Quad View">
                 <h4 style='position: absolute;top: 5px;left: 20px;'>M1</h4>
-                <h4 style='position: absolute;top: 0px;left: 45%;'>(Front)</h4>
-                <h4 id='direction' style='position: absolute;top: 15px;left: 47%;'></h4>
+                <h4 style='position: absolute;top: 0px;left: 45%;'>(Front)</h4>     
                 <h4 style='position: absolute;top: 5px;right: 15px;'>M3</h4>
                 <h4 style='position: absolute;bottom: 5px;left: 20px;'>M4</h4>
                 <h4 style='position: absolute;bottom: 5px;right: 15px;'>M2</h4>
-            </div>
+                <h4 id='direction' style=''>No Data</h4>
+                
             <div class="col-sm-6">
                 <table id='messages' class="table table-responsive">
                     <tr>

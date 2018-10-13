@@ -114,7 +114,7 @@ var madgwick = new AHRS({
 
     /*
      * The filter noise value, smaller values have
-     * smoother estimates, but have higher latency.
+     * smoother estimates, but have higher latency. was 3
      */
     beta: 3
 });
@@ -138,6 +138,9 @@ console.log("Running at Port 8080");
 
 landing_gear.WakeGear(LandingGearPin);
 
+//Orientation data
+IMU.SetUpdateInterval(mpu9255_obj,madgwick);
+
 io.on('connection', function (client) {// Web Socket Connection
     client.on('altitude', function() { //get status from client
         //Altitude data
@@ -155,6 +158,9 @@ io.on('connection', function (client) {// Web Socket Connection
                 io.emit("battery",bat_voltage);
             } 
         });
+    });
+    
+    client.on('D2G', function() { //get status from client
         //Distance from ground (ultrasonic sensor)
         ADC.PCF8591_Data(i2c1,0x01,function(voltage) {
             if (voltage) {
@@ -165,9 +171,9 @@ io.on('connection', function (client) {// Web Socket Connection
         
     client.on('orientation', function() { //get status from client
         //Orientation data
-        IMU.GetOrientation(mpu9255_obj,madgwick,function(data) {
-            if (data) {
-                io.emit("mpu9255",data);
+        IMU.GetOrientation(mpu9255_obj,madgwick,function(pyr) {
+            if (pyr) {
+                io.emit("mpu9255",pyr);
             }
         });
     });
