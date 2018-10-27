@@ -15,21 +15,21 @@
             var socket = io.connect();
             
             socket.on('disconnect', function(){
-            //clear all intervals
+                $("body").html("Server Connection Lost!");
             });
             
             //check battery on start
             //socket.emit("battery",true);
             
             //get altitude measurement every second
-            setInterval(function() {
-                socket.emit("altitude",true);
-            }, 800);
+            //setInterval(function() {
+            //    socket.emit("altitude",true);
+            //}, 800);
             
             //check quad orientation every half second
-            setInterval(function() {
-                socket.emit("orientation",true);
-            }, 500);
+            //setInterval(function() {
+            //    socket.emit("orientation",true);
+            //}, 500);
             
             //listen and update battery life
             socket.on('battery', function(voltage) {
@@ -123,7 +123,7 @@
                 if (data) {
                     //timestamp output = YYYY-MM-DD H:MM:SS
                     var timestamp = moment().format("YYYY-MM-DD HH:mm:ss");
-                    $("#messages").append("<tr><td>"+timestamp+"</td><td>"+data+"</td></tr>");
+                    $("#messages #header").after("<tr><td>"+timestamp+"</td><td>"+data+"</td></tr>");
                 }
             });
 
@@ -143,7 +143,7 @@
                 <button id='motor4_test' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Test Motor 4</button>
             </div>
             <div class="col-sm-3">
-                <button id='liftoff_ground' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Liftoff Ground</button>
+                <button id='hover_test' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Hover Test</button>
                 <button id='landing_gear_deploy' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Deploy Gear</button>
                 <button id='landing_gear_retract' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Retract Gear</button>
                 <button id='altitude_data' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Altitude Data</button>
@@ -171,9 +171,10 @@
                 <h4 style='position: absolute;bottom: 5px;right: 15px;'>M2</h4>
                 <h4 id='direction' style=''>No Data</h4>
                 
+            </div>
             <div class="col-sm-6">
                 <table id='messages' class="table table-responsive">
-                    <tr>
+                    <tr id="header">
                         <th>Timestamp</th>
                         <th>Description</th>
                     </tr>

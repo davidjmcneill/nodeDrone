@@ -6,7 +6,8 @@ var io = require('socket.io')(server, {
     serveClient: false,
     pingInterval: 2000,
     pingTimeout: 2000,
-    cookie: false
+    cookie: false,
+    reconnection: false
 }); 
 var fs = require('fs'); //require filesystem module
 var Gpio = require('pigpio').Gpio;
@@ -57,14 +58,14 @@ var GYRO_OFFSET = {
 // These values were generated using calibrate_accel.js - you will want to create your own.
 var ACCEL_CALIBRATION = {
     offset: {
-        x: 0.008140869140625,
-        y: 0.009057820638020833,
-        z: 0.0781829833984375
+        x: 0.0026436360677083333,
+        y: 0.0690252685546875,
+        z: 0.0532501220703125
     },
     scale: { 
-        x: [ -0.9945719401041667, 1.00426513671875 ],
-        y: [ -0.9799568684895833, 1.0115974934895833 ],
-        z: [ 1.0539290364583334, -0.9614567057291666 ] 
+        x: [ 0.9910611979166667, -1.0054142252604166 ],
+        y: [ -0.9826920572916666, 1.0140657552083334 ],
+        z: [ -0.9496875, 1.0560416666666668 ] 
     }
 };
 
@@ -124,6 +125,7 @@ var i2c1 = i2c.openSync(1);
 //define external modules
 let test_motor = require('./test_motor.js');
 let arm_motor = require('./arm_motor.js');
+let run_motor = require('./run_motor.js');
 let landing_gear = require('./landing_gear.js');
 let IMU = require('./imu.js');
 let ADC = require('./adc.js');
@@ -137,6 +139,15 @@ server.listen(8080);
 console.log("Running at Port 8080");
 
 landing_gear.WakeGear(LandingGearPin);
+
+//save initial altitude value
+var init_alt = 0;
+IMU.GetAltitude(BMP180_obj,function(pressure) {
+    if (pressure) {
+        var altitude = 44330 * (1 - Math.pow((pressure/100)/1013.25,(1/5.255)));
+        init_alt = altitude;
+    }
+});
 
 //Orientation data
 IMU.SetUpdateInterval(mpu9255_obj,madgwick);
@@ -226,11 +237,97 @@ io.on('connection', function (client) {// Web Socket Connection
         landing_gear.RetractGear(LandingGearPin);
     });   
     
-    client.on('liftoff_ground', function() { //get button status from client
-        //hover.RetractGear(LandingGearPin);
+    client.on('hover_test', function() { //get button status from client
+        //define PID controller variables
+        var hover_alt = init_alt + 2.0;//goal to hover 2 meters high
+        var current_alt = roll_change = pitch_change = yaw_change = 0;
+        var error_x = error_y = error_z = 0;
+        var motor1_throttle = motor2_throttle = motor3_throttle = motor4_throttle = throttle = 0;
+        var alt_deltaV = 0;
+        var Kp = 0.5, Ki = 0.01, inv_dt = 5;
+        var target_x = 0,target_y = 0,target_z = 90;//determined by testing
         
+        io.emit("messages","Initial Altitude: " + init_alt+" Target: " + hover_alt);
+
+//        //check quad altitude every 400 ms
+//        setInterval(function() {
+//            //get current height
+//            IMU.GetAltitude(BMP180_obj,function(pressure) {
+//                if (pressure) {
+//                    var altitude = 44330 * (1 - Math.pow((pressure/100)/1013.25,(1/5.255)));
+//                    //check if quad has moved by more than 1m, if no increase throttle
+//                    alt_deltaV = altitude - current_alt;
+//                    io.emit("messages","Current Altitude: " + current_alt.toFixed(2)+" Alt_DeltaV = "+alt_deltaV.toFixed(2));
+//                    if (alt_deltaV < 2) {
+//                        //quad has not moved, need to go higher -> increase throttle
+//                        var motor1_array = {pin: motor1Pin, throttle: motor1_throttle};
+//                        var motor2_array = {pin: motor2Pin, throttle: motor2_throttle};
+//                        var motor3_array = {pin: motor3Pin, throttle: motor3_throttle};
+//                        var motor4_array = {pin: motor4Pin, throttle: motor4_throttle};
+//                        //SetAllMotorsSpeed(motor1_array,motor2_array,motor3_array,motor4_array,10,function(throttle) {
+//
+//                        //});
+//                    }
+//                    current_alt = altitude;
+//                }
+//            });
+//        }, 400);
+        
+        //check quad orientation every half second
+        setInterval(function() {
+            //check orientation
+            IMU.GetOrientation(mpu9255_obj,madgwick,function(pyr) {
+                if (pyr) {
+                    throttle = 50;
+                    error_x = pyr["roll"] - target_x;
+                    error_y = pyr["pitch"] - target_y;
+                    error_z = pyr["heading"] - target_z;
+                    
+                    //io.emit("messages","R: " + pyr["roll"].toFixed(2)+" P: " + pyr["pitch"].toFixed(2)+" Y: " + pyr["heading"].toFixed(2));
+                    
+                    roll_change = (Kp*error_x) + (Ki*inv_dt*error_x);//Proportional + Integral + Derivative
+                    pitch_change = (Kp*error_y) + (Ki*inv_dt*error_y);
+                    yaw_change = (Kp*error_z) + (Ki*inv_dt*error_z);
+                    
+                    //Adjust motor thottle based on current state
+                    motor1_throttle = throttle - roll_change + pitch_change;
+                    motor2_throttle = throttle + roll_change - pitch_change;
+                    motor3_throttle = throttle + roll_change + pitch_change;
+                    motor4_throttle = throttle - roll_change - pitch_change; 
+                    
+                    if (motor1_throttle <= 0) {
+                        motor1_throttle = 0;
+                    }
+                    if (motor2_throttle <= 0) {
+                        motor2_throttle = 0;
+                    }
+                    if (motor3_throttle <= 0) {
+                        motor3_throttle = 0;
+                    }
+                    if (motor4_throttle <= 0) {
+                        motor4_throttle = 0;
+                    }
+                    
+                    //io.emit("messages","M1: " + motor1_throttle.toFixed(1) + "% M2: " + motor2_throttle.toFixed(1) + "% M3: " + motor3_throttle.toFixed(1) + "% M4: " + motor4_throttle.toFixed(1) + "%");
+                    
+                    //Set each motor speed 
+//                    SetMotorSpeed(motor1Pin,motor1_throttle,function(throttle){
+//                        io.emit("messages","M1: " + throttle.toFixed(1) + "%");
+//                    });
+//                    SetMotorSpeed(motor2Pin,motor2_throttle,function(throttle){
+//                        io.emit("messages","M2: " + throttle.toFixed(1) + "%");
+//                    });
+//                    SetMotorSpeed(motor3Pin,motor3_throttle,function(throttle){
+//                        io.emit("messages","M3: " + throttle.toFixed(1) + "%");
+//                    });
+//                    SetMotorSpeed(motor4Pin,motor4_throttle,function(throttle){
+//                        io.emit("messages","M4: " + throttle.toFixed(1) + "%");
+//                    });
+                }
+            });
+        }, 100);   
         //pick up landing gear once in air
-        landing_gear.RetractGear(LandingGearPin);
+        //landing_gear.RetractGear(LandingGearPin);
     });   
 });
 
