@@ -4,12 +4,13 @@ var server = require('http').createServer(app);
 var io = require('socket.io')(server, {
     //require socket.io module and pass the http object (server)
     serveClient: false,
-    pingInterval: 2000,
-    pingTimeout: 2000,
-    cookie: false,
-    reconnection: false
+    pingInterval: 1000,
+    pingTimeout: 5000,
+    reconnection: true,
+    reconnectionAttempts: 15
 }); 
-var fs = require('fs'); //require filesystem module
+//pull in Raspberrypi / NPM Modules
+var fs = require('fs'); 
 var Gpio = require('pigpio').Gpio;
 var RaspiSensors = require('raspi-sensors');
 var i2c = require('i2c-bus');
@@ -120,6 +121,7 @@ var madgwick = new AHRS({
     beta: 3
 });
 
+//Initialize i2c communication bus
 var i2c1 = i2c.openSync(1);
     
 //define external modules
@@ -130,17 +132,25 @@ let landing_gear = require('./landing_gear.js');
 let IMU = require('./imu.js');
 let ADC = require('./adc.js');
 
+//default/root file path for client connection
 app.get('/', function (req, res) {
   res.sendFile(__dirname + '/index.html');
 });
  
+ //Start broadcasting server over specified port
 server.listen(8080);
-
 console.log("Running at Port 8080");
 
+//Initialize landing gear
 landing_gear.WakeGear(LandingGearPin);
 
-//save initial altitude value
+//Initialize IMU
+IMU.SetUpdateInterval(mpu9255_obj,madgwick);
+
+//Initialize ADC by sending control byte
+i2c1.i2cWriteSync(0x48,1,0x40);
+
+//Store initial altitude measurement
 var init_alt = 0;
 IMU.GetAltitude(BMP180_obj,function(pressure) {
     if (pressure) {
@@ -149,9 +159,7 @@ IMU.GetAltitude(BMP180_obj,function(pressure) {
     }
 });
 
-//Orientation data
-IMU.SetUpdateInterval(mpu9255_obj,madgwick);
-
+//When client connects, provide information on page
 io.on('connection', function (client) {// Web Socket Connection
     client.on('altitude', function() { //get status from client
         //Altitude data
@@ -164,16 +172,16 @@ io.on('connection', function (client) {// Web Socket Connection
     
     client.on('battery', function() { //get status from client
         //Battery voltage
-        ADC.PCF8591_Data(i2c1,0x00,function(bat_voltage) {
+        ADC.PCF8591_Data(i2c1,0x40,function(bat_voltage) {
             if (bat_voltage) {
                 io.emit("battery",bat_voltage);
-            } 
+            }
         });
     });
     
     client.on('D2G', function() { //get status from client
         //Distance from ground (ultrasonic sensor)
-        ADC.PCF8591_Data(i2c1,0x01,function(voltage) {
+        ADC.PCF8591_Data(i2c1,0x41,function(voltage) {
             if (voltage) {
                 io.emit("D2G",voltage);
             }

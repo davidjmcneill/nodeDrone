@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html>
-
     <head>
         <title>Quad Control</title>
         <style>
@@ -19,28 +18,30 @@
             });
             
             //check battery on start
-            //socket.emit("battery",true);
+            socket.emit("battery",true);
             
             //get altitude measurement every second
-            //setInterval(function() {
-            //    socket.emit("altitude",true);
-            //}, 800);
+            setInterval(function() {
+                socket.emit("altitude",true);
+            }, 800);
             
             //check quad orientation every half second
-            //setInterval(function() {
-            //    socket.emit("orientation",true);
-            //}, 500);
+            setInterval(function() {
+               socket.emit("orientation",true);
+            }, 500);
             
             //listen and update battery life
             socket.on('battery', function(voltage) {
                 var vmax = 2.36, vmin = 2.12;
                 var vdiff = vmax-vmin;
-                var percent = Math.round((1-((vmax-voltage)/vdiff))*100);
-                if (percent > 100) { percent = 100; }
-                if (percent < 0) { percent = 0; }
-
-                $("#battery_life").html("Battery Life: "+voltage.toFixed(2)+" ("+percent+"%)");
                 
+                if (voltage) {
+                    var percent = Math.round((1-((vmax-voltage)/vdiff))*100);
+                    if (percent > 100) { percent = 100; }
+                    if (percent < 0) { percent = 0; }
+                    $("#battery_life").html("Battery Life: "+voltage);
+                    //$("#battery_life").html("Battery Life: "+voltage.toFixed(2)+" ("+percent+"%)");
+                }
                 //check distance to ground (ultrasonic sensor)
                 socket.emit("D2G",true);
             });
@@ -63,25 +64,25 @@
                     direction = 'E';
                 } else if (pyr["heading"] > -60 && pyr["heading"] <= -30) {
                     //Heading Direction is SouthEast
-                    direction = 'SE';
+                    direction = 'NE';
                 } else if (pyr["heading"] > -120 && pyr["heading"] <= -60) {
                     //Heading Direction is South
-                    direction = 'S';
+                    direction = 'N';
                 } else if (pyr["heading"] > -150 && pyr["heading"] <= -120) {
                     //Heading Direction is SouthWest
-                    direction = 'SW';
+                    direction = 'NW';
                 } else if (pyr["heading"] > 150 || pyr["heading"] <= -150) {
                     //Heading Direction is West
                     direction = 'W';
                 } else if (pyr["heading"] > 120 && pyr["heading"] <= 150) {
                     //Heading Direction is NorthWest
-                    direction = 'NW';
+                    direction = 'SW';
                 } else if (pyr["heading"] > 60 && pyr["heading"] <= 120) {
                     //Heading Direction is North
-                    direction = 'N';
+                    direction = 'S';
                 } else if (pyr["heading"] > 30 && pyr["heading"] <= 60) {
                     //Heading Direction is NorthEast
-                    direction = 'NE';
+                    direction = 'SE';
                 }
                 $("#direction").html("");
                 if (direction) {
@@ -109,10 +110,14 @@
             //listen and update distance measurement
             socket.on('D2G', function(distance) {
                 if (distance) {
-                    $("#distance_to_ground").html("Distance to Ground: "+distance.toFixed(2)+"in</span>");
+                    if (distance < 8) {
+                        $("#distance_to_ground").html("Distance to Ground: 0 - 6 inches</span>");
+                    } else {
+                        $("#distance_to_ground").html("Distance to Ground: "+distance+" inches</span>");
+                    }
                 }
                 
-                //wait 100ms and restart sequence
+                //restart sequence after short delay
                 setTimeout(function() {
                     socket.emit("battery",true);
                 }, 500);
@@ -158,6 +163,7 @@
                 <div id='battery_life'></div>
                 <div id='altitude'></div>
                 <div id='distance_to_ground'></div>
+                <div id='direction'></div>
             </div>
         </div>
         
@@ -169,8 +175,6 @@
                 <h4 style='position: absolute;top: 5px;right: 15px;'>M3</h4>
                 <h4 style='position: absolute;bottom: 5px;left: 20px;'>M4</h4>
                 <h4 style='position: absolute;bottom: 5px;right: 15px;'>M2</h4>
-                <h4 id='direction' style=''>No Data</h4>
-                
             </div>
             <div class="col-sm-6">
                 <table id='messages' class="table table-responsive">
