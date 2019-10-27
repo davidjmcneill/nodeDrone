@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
     <head>
-        <title>Quad Control</title>
+        <title>Flight Control Panel</title>
         <style>
             body { margin: 0; }
             canvas { width: 100%; height: 100% }
@@ -11,179 +11,267 @@
         <script type="text/javascript" src="libs/jquery.min.js"></script>
         <script type="text/javascript" src="libs/moment.js"></script>
         <script>
+            //initialize socket io connection
             var socket = io.connect();
             
             socket.on('disconnect', function(){
                 $("body").html("Server Connection Lost!");
             });
             
-            //check battery on start
             socket.emit("battery",true);
+            //check battery life every 5 seconds
+            setInterval(function() {
+                socket.emit("battery",true);
+            }, 5000);
             
             //get altitude measurement every second
-            setInterval(function() {
+            var altitude_scan = setInterval(function() {
                 socket.emit("altitude",true);
-            }, 800);
+            }, 1000);
             
             //check quad orientation every half second
-            setInterval(function() {
-               socket.emit("orientation",true);
-            }, 500);
+//            var orientation_scan = setInterval(function() {
+//               socket.emit("orientation",true);
+//            }, 500);
             
             //listen and update battery life
             socket.on('battery', function(voltage) {
-                var vmax = 2.36, vmin = 2.12;
+                //timestamp output = YYYY-MM-DD H:MM:SS
+                var timestamp = moment().format("YYYY-MM-DD HH:mm:ss:SS");
+                var vmax = 2.20, vmin = 1.90;
                 var vdiff = vmax-vmin;
                 
                 if (voltage) {
+                    voltage = voltage * (3.3 / 255) - 0.25;
                     var percent = Math.round((1-((vmax-voltage)/vdiff))*100);
                     if (percent > 100) { percent = 100; }
                     if (percent < 0) { percent = 0; }
-                    $("#battery_life").html("Battery Life: "+voltage);
-                    //$("#battery_life").html("Battery Life: "+voltage.toFixed(2)+" ("+percent+"%)");
+                    
+                    //check battery reading table, only show a maximum of 10 data readings at a time
+                    if ($('#battery_readings tr').length > 11) {
+                        $('#battery_readings tr:last').remove();
+                    }
+                    //add row to top of table
+                    $('#battery_readings #header').after("<tr><td>"+timestamp+"</td><td>"+voltage.toFixed(2)+"V+ "+percent+"%</td></tr>");
+                    
+                    //update battery life
+                    $('#battery_life_status').html(percent+"%");
                 }
-                //check distance to ground (ultrasonic sensor)
-                socket.emit("D2G",true);
             });
+            
             //listen and update altitude measurement
             socket.on('altitude', function(pressure) {
+                //timestamp output = YYYY-MM-DD H:MM:SS
+                var timestamp = moment().format("YYYY-MM-DD HH:mm:ss:SS");
+                
                 if (pressure) {
                     var altitude = 44330 * (1 - Math.pow((pressure/100)/1013.25,(1/5.255)));
-                    $("#altitude").html("Altitude: "+altitude.toFixed(2)+"m</span>");
-                }
-            });
-            //listen and update heading
-            socket.on('mpu9255', function(pyr) {
-                var direction;
-
-                //Determine Cardinal Directions from heading 
-                //East = 0 degrees, North = 90 degrees, South = -90 degrees, West = 180 degrees
-                //Northeast = 45 degrees, Southeast = -45 degrees, Northwest = 135 degrees, Southwest = -135 degrees
-                if(pyr["heading"] > -30 && pyr["heading"] <= 30) {
-                    //Heading Direction is East
-                    direction = 'E';
-                } else if (pyr["heading"] > -60 && pyr["heading"] <= -30) {
-                    //Heading Direction is SouthEast
-                    direction = 'NE';
-                } else if (pyr["heading"] > -120 && pyr["heading"] <= -60) {
-                    //Heading Direction is South
-                    direction = 'N';
-                } else if (pyr["heading"] > -150 && pyr["heading"] <= -120) {
-                    //Heading Direction is SouthWest
-                    direction = 'NW';
-                } else if (pyr["heading"] > 150 || pyr["heading"] <= -150) {
-                    //Heading Direction is West
-                    direction = 'W';
-                } else if (pyr["heading"] > 120 && pyr["heading"] <= 150) {
-                    //Heading Direction is NorthWest
-                    direction = 'SW';
-                } else if (pyr["heading"] > 60 && pyr["heading"] <= 120) {
-                    //Heading Direction is North
-                    direction = 'S';
-                } else if (pyr["heading"] > 30 && pyr["heading"] <= 60) {
-                    //Heading Direction is NorthEast
-                    direction = 'SE';
-                }
-                $("#direction").html("");
-                if (direction) {
-                    $("#direction").append("("+direction+")");
-                } else {
-                    $("#direction").append(" No Heading");
-                }
-                if (pyr["heading"]) {
-                    $("#direction").append(" Yaw:"+pyr["heading"].toFixed(2)+"&#176;");
-                } else {
-                    $("#direction").append(" No Yaw");
-                }
-                if (pyr["pitch"]) {
-                    $("#direction").append(" Pitch:"+pyr["pitch"].toFixed(2)+"&#176;");
-                } else {
-                    $("#direction").append(" No Pitch");
-                }
-                if (pyr["roll"]) {
-                    $("#direction").append(" Roll:"+pyr["roll"].toFixed(2)+"&#176;");
-                } else {
-                    $("#direction").append(" No Roll");
+                    
+                    //check altitude reading table, only show a maximum of 10 data readings at a time
+                    if ($('#altitude_readings tr').length > 11) {
+                        $('#altitude_readings tr:last').remove();
+                    }
+                    //add row to top of table
+                    $('#altitude_readings #header').after("<tr><td>"+timestamp+"</td><td>"+altitude.toFixed(2)+"m</td></tr>");
                 }
             });
             
             //listen and update distance measurement
             socket.on('D2G', function(distance) {
+                //timestamp output = YYYY-MM-DD H:MM:SS
+                var timestamp = moment().format("YYYY-MM-DD HH:mm:ss:SS");
+                
                 if (distance) {
-                    if (distance < 8) {
-                        $("#distance_to_ground").html("Distance to Ground: 0 - 6 inches</span>");
-                    } else {
-                        $("#distance_to_ground").html("Distance to Ground: "+distance+" inches</span>");
+                    //check altitude reading table, only show a maximum of 10 data readings at a time
+                    if ($('#ground_distance_readings tr').length > 11) {
+                        $('#ground_distance_readings tr:last').remove();
                     }
+                    //add row to top of table
+                    $('#ground_distance_readings #header').after("<tr><td>"+timestamp+"</td><td>"+distance+"in</td></tr>");
+                }
+            });
+            
+            //listen and update heading
+            socket.on('mpu9255', function(pyr) {
+                //timestamp output = YYYY-MM-DD H:MM:SS
+                var timestamp = moment().format("YYYY-MM-DD HH:mm:ss:SS");
+                var pitch = pyr["pitch"];
+                var yaw = pyr["heading"];
+                var roll = pyr["roll"];
+
+                //Determine Cardinal Directions from heading 
+                //East = 0 degrees, North = -90 degrees, South = 90 degrees, West = 180 degrees
+                //Northeast = -45 degrees, Southeast = 45 degrees, Northwest = -135 degrees, Southwest = 135 degrees
+                var direction;
+                if(yaw > -30 && yaw <= 30) {
+                    //Heading Direction is East
+                    direction = 'E';
+                } else if (yaw > -60 && yaw <= -30) {
+                    //Heading Direction is NorthEast
+                    direction = 'NE';
+                } else if (yaw > -120 && yaw <= -60) {
+                    //Heading Direction is North
+                    direction = 'N';
+                } else if (yaw > -150 && yaw <= -120) {
+                    //Heading Direction is NorthWest
+                    direction = 'NW';
+                } else if (yaw > 150 || yaw <= -150) {
+                    //Heading Direction is West
+                    direction = 'W';
+                } else if (yaw > 120 && yaw <= 150) {
+                    //Heading Direction is SouthWest
+                    direction = 'SW';
+                } else if (yaw > 60 && yaw <= 120) {
+                    //Heading Direction is South
+                    direction = 'S';
+                } else if (yaw > 30 && yaw <= 60) {
+                    //Heading Direction is SouthEast
+                    direction = 'SE';
+                }
+                $("#direction").html("");
+                if (direction) {
+                    $("#direction").append("("+direction+")<br/>");
+                } else {
+                    $("#direction").append(" No Heading");
+                }
+                if (pitch) {
+                    $("#direction").append(" Pitch:"+pitch.toFixed(2)+"&#176;");
+                } else {
+                    $("#direction").append(" No Pitch");
+                }
+                if (yaw) {
+                    $("#direction").append(" Yaw:"+yaw.toFixed(2)+"&#176;");
+                } else {
+                    $("#direction").append(" No Yaw");
+                }
+                if (roll) {
+                    $("#direction").append(" Roll:"+roll.toFixed(2)+"&#176;");
+                } else {
+                    $("#direction").append(" No Roll");
                 }
                 
-                //restart sequence after short delay
-                setTimeout(function() {
-                    socket.emit("battery",true);
-                }, 500);
-                
+                //check altitude reading table, only show a maximum of 10 data readings at a time
+                if ($('#orientation_readings tr').length > 11) {
+                    $('#orientation_readings tr:last').remove();
+                }
+                //add row to top of table
+                $('#orientation_readings #header').after("<tr><td>"+timestamp+"</td><td>("+direction+") P:"+pitch.toFixed(2)+"&#176; Y:"+yaw.toFixed(2)+"&#176; R:"+roll.toFixed(2)+"&#176;</td></tr>");
             });
-            //listen and append new message to table
-            socket.on('messages', function(data) {
+            
+            //listen for drone status messages and append to table
+            socket.on('drone_status', function(data) {
+                //check drone status table, only show a maximum of 10 at a time
+                if ($('#status_messages tr').length > 11) {
+                    $('#status_messages tr:last').remove();
+                }
+                //timestamp output = YYYY-MM-DD H:MM:SS
+                var timestamp = moment().format("YYYY-MM-DD HH:mm:ss:SS");
                 if (data) {
-                    //timestamp output = YYYY-MM-DD H:MM:SS
-                    var timestamp = moment().format("YYYY-MM-DD HH:mm:ss");
-                    $("#messages #header").after("<tr><td>"+timestamp+"</td><td>"+data+"</td></tr>");
+                    var id = data.id;
+                    if (id === "motor_throttle") {
+                        var name = data.name;
+                        var throttle = data.throttle;
+                        $("#"+name+"_display").html(throttle+"%");
+                        
+                    } else if (id === "hover_test") {
+                        var current = data.current;
+                        var target = data.target;
+                        $("#drone_status").html("Hover Testing");
+                        $("#status_messages #header").after("<tr><td>"+timestamp+"</td><td>Current Distance: "+current+"in, Target Distance: "+target+"in</td></tr>");
+                        
+                    }else {
+                        $("#status_messages #header").after("<tr><td>"+timestamp+"</td><td>"+data+"</td></tr>");
+                    }
                 }
             });
 
         </script>
         <link rel="stylesheet" href="libs/bootstrap.min.css">
+        <link rel="stylesheet" href="libs/master.css">
     </head>
     
     <body>
+        <nav class="navbar sidebar">
+            <ul class="navbar-nav">
+                <div class="heading">Battery Status</div>
+                <li class="nav-item" id="battery_life_status">0%</li>
+                <div class="heading">Drone Status</div>
+                <li class="nav-item" id="drone_status">Idle</li>
+            </ul>
+            <ul class="navbar-nav">
+                <div class="heading">Launch Sequence</div>
+                <li class="nav-item"><a href="#" class="nav-link" id='motor_arm' onclick='socket.emit(this.id,true)'>1. Arm Motors</a></li>
+                <li class="nav-item"><a href="#" class="nav-link" id='hover_test' onclick='socket.emit(this.id,true)'>2. Hover Test</a></li>
+            </ul>
+            <ul class="navbar-nav">
+                <div class="heading">Test Functions</div>
+                <li class="nav-item"><a href="#" class="nav-link" id='motor1_test' onclick='socket.emit(this.id,true)'>Test Motor 1</a></li>
+                <li class="nav-item"><a href="#" class="nav-link" id='motor2_test' onclick='socket.emit(this.id,true)'>Test Motor 2</a></li>
+                <li class="nav-item"><a href="#" class="nav-link" id='motor3_test' onclick='socket.emit(this.id,true)'>Test Motor 3</a></li>
+                <li class="nav-item"><a href="#" class="nav-link" id='motor4_test' onclick='socket.emit(this.id,true)'>Test Motor 4</a></li>
+                <li class="nav-item"><a href="#" class="nav-link" id='landing_gear_deploy' onclick='socket.emit(this.id,true)'>Deploy Gear</a></li>
+                <li class="nav-item"><a href="#" class="nav-link" id='landing_gear_retract' onclick='socket.emit(this.id,true)'>Retract Gear</a></li>
+                <li class="nav-item"><a href="#" class="nav-link" id='move_north' onclick='socket.emit(this.id,true)'>Move North</a></li>
+                <li class="nav-item"><a href="#" class="nav-link" id='move_east' onclick='socket.emit(this.id,true)'>Move East</a></li>
+                <li class="nav-item"><a href="#" class="nav-link" id='move_south' onclick='socket.emit(this.id,true)'>Move South</a></li>
+                <li class="nav-item"><a href="#" class="nav-link" id='move_west' onclick='socket.emit(this.id,true)'>Move West</a></li>
+            </ul>
+        </nav>
         <div class="row">
-            <div class="col-sm-1">
-                <button id='motor_arm' type='button' class='btn btn-primary' onclick='socket.emit(this.id,true)'>Arm Motors</button>
+            <div class="col-sm-2"></div>
+            <div class='col-sm-3' style='position:relative;text-align:center;vertical-align:middle;'>
+                <img class="img-fluid" src="images/prop-rotational-directions.jpg" alt="Quad Overview">
+                <h4 id="motor1_display" class="motor_display" style='top:120px;left:70px;'>0%</h4>    
+                <h4 id="motor3_display" class="motor_display" style='top:120px;right:70px;'>0%</h4>
+                <h4 id="motor4_display" class="motor_display" style='top:180px;left:70px;'>0%</h4>
+                <h4 id="motor2_display" class="motor_display" style='top:180px;right:70px;'>0%</h4>
+                <div id="direction" class="motor_display" style="top:200px;left:200px;"></div>
             </div>
             <div class="col-sm-3">
-                <button id='motor1_test' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Test Motor 1</button>
-                <button id='motor2_test' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Test Motor 2</button>
-                <button id='motor3_test' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Test Motor 3</button>
-                <button id='motor4_test' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Test Motor 4</button>
-            </div>
-            <div class="col-sm-3">
-                <button id='hover_test' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Hover Test</button>
-                <button id='landing_gear_deploy' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Deploy Gear</button>
-                <button id='landing_gear_retract' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Retract Gear</button>
-                <button id='altitude_data' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Altitude Data</button>
-            </div>
-            <div class="col-sm-3">
-                <button id='move_north' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Move North</button>
-                <button id='move_east' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Move East</button>
-                <button id='move_south' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Move South</button>
-                <button id='move_west' type='button' class='btn btn-success' onclick='socket.emit(this.id,true)'>Move West</button>
-            </div>
-            <div class="col-sm-2 text-left">
-                <div id='battery_life'></div>
-                <div id='altitude'></div>
-                <div id='distance_to_ground'></div>
-                <div id='direction'></div>
-            </div>
-        </div>
-        
-        <div class="row">
-            <div class='col-sm-4' style='position:relative;width:auto;'>
-                <img class="img-responsive" src="images/prop-rotational-directions.jpg" alt="Quad View">
-                <h4 style='position: absolute;top: 5px;left: 20px;'>M1</h4>
-                <h4 style='position: absolute;top: 0px;left: 45%;'>(Front)</h4>     
-                <h4 style='position: absolute;top: 5px;right: 15px;'>M3</h4>
-                <h4 style='position: absolute;bottom: 5px;left: 20px;'>M4</h4>
-                <h4 style='position: absolute;bottom: 5px;right: 15px;'>M2</h4>
-            </div>
-            <div class="col-sm-6">
-                <table id='messages' class="table table-responsive">
+                <h4>Drone History</h4>
+                <table id='status_messages' class="table table-responsive">
                     <tr id="header">
                         <th>Timestamp</th>
-                        <th>Description</th>
+                        <th>Details</th>
                     </tr>
                 </table>
             </div>
+            <div class="col-sm-2">
+                <h4>Last 10 Battery Readings</h4>
+                <table id='battery_readings' class="table table-responsive">
+                    <tr id="header">
+                        <th>Timestamp</th>
+                        <th>Data</th>
+                    </tr>
+                </table>
+            </div>
+            <div class="col-sm-2">
+                <h4>Last 10 Altitude Readings</h4>
+                <table id='altitude_readings' class="table table-responsive">
+                    <tr id="header">
+                        <th>Timestamp</th>
+                        <th>Data</th>
+                    </tr>
+                </table>
+            </div>
+            <div class="col-sm-2">
+                <h4>Last 10 Ground Distance Readings</h4>
+                <table id='ground_distance_readings' class="table table-responsive">
+                    <tr id="header">
+                        <th>Timestamp</th>
+                        <th>Data</th>
+                    </tr>
+                </table>
+            </div>
+<!--            <div class="col-sm-3">
+                <h4>Last 10 Orientation Readings</h4>
+                <table id='orientation_readings' class="table table-responsive">
+                    <tr id="header">
+                        <th>Timestamp</th>
+                        <th>Data</th>
+                    </tr>
+                </table>
+            </div-->
         </div>
     </body>
     

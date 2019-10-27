@@ -3,8 +3,6 @@
 
 function PCF8591_Data(i2c1,hex_addr,cb) {
     var PCF8591_ADDR = 0x48;
-
-    //console.log(i2c1.readByteSync(PCF8591_ADDR,hex_addr));
     i2c1.readByte(PCF8591_ADDR,hex_addr, function (err,byte) {
         if (err) {
             throw err;

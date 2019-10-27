@@ -17,7 +17,6 @@ function RunMotorTest(motor_pin,cb) {
             motor_pin.pwmFrequency(pwm_freq);
             motor_pin.pwmRange(pwm_range);
             motor_pin.pwmWrite(throttle);
-            throttle = 100;
             cb(throttle);
         }
         motor_pin.pwmFrequency(pwm_freq);
