@@ -5,28 +5,20 @@ body{
     position:absolute;
     font-weight:bold;
 }
-.sidebar {
-
-}
-.sidebar {
+.custom-navbar {
     background:linear-gradient(to bottom, #43609c 0%, rgba(19, 148, 87, 0.7) 100%);
-    position:fixed;
-    top:0;
-    bottom:0;
-    align-items:baseline;
-    z-index:3;
 }
-.sidebar ul {
+.custom-navbar ul {
     width:100%;
     color:rgba(255,255,255,0.8);
 }
-.sidebar .heading {
+.custom-navbar .heading {
     color:rgba(255,255,255,0.45);
     font-size: 90%;
 }
-.sidebar ul li a {
+.custom-navbar ul li a {
     color:rgba(255,255,255,0.8);
 }
-.sidebar ul li a:hover {
+.custom-navbar ul li a:hover {
     color:rgba(255,255,255,1);
 }

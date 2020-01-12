@@ -186,25 +186,41 @@
             });
 
         </script>
+        <link rel="stylesheet" href="libs/font-awesome.min.css">
         <link rel="stylesheet" href="libs/bootstrap.min.css">
         <link rel="stylesheet" href="libs/master.css">
     </head>
     
     <body>
-        <nav class="navbar sidebar">
+        <nav class="navbar navbar-expand-sm custom-navbar">
+            <!-- Brand -->
+            <span class="navbar-brand">NodeAutoDrone</span>
+
+            <!-- Links -->
             <ul class="navbar-nav">
-                <div class="heading">Battery Status</div>
-                <li class="nav-item" id="battery_life_status">0%</li>
-                <div class="heading">Drone Status</div>
-                <li class="nav-item" id="drone_status">Idle</li>
+                <li class="nav-item nav-link"><span class="fa fa-battery"></span><span id="battery_life_status">0%</span></li>
+                <li class="nav-item nav-link" id="drone_status">Idle</li>
+              <!-- Dropdown -->
+              <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" href="#" id="navbardrop" data-toggle="dropdown">
+                  Dropdown link
+                </a>
+                <div class="dropdown-menu">
+                  <a class="dropdown-item" href="#">Link 1</a>
+                  <a class="dropdown-item" href="#">Link 2</a>
+                  <a class="dropdown-item" href="#">Link 3</a>
+                </div>
+              </li>
             </ul>
+        </nav>
+        <div>
             <ul class="navbar-nav">
-                <div class="heading">Launch Sequence</div>
+                <li class="heading">Launch Sequence</li>
                 <li class="nav-item"><a href="#" class="nav-link" id='motor_arm' onclick='socket.emit(this.id,true)'>1. Arm Motors</a></li>
                 <li class="nav-item"><a href="#" class="nav-link" id='hover_test' onclick='socket.emit(this.id,true)'>2. Hover Test</a></li>
             </ul>
             <ul class="navbar-nav">
-                <div class="heading">Test Functions</div>
+                <li class="heading">Test Functions</li>
                 <li class="nav-item"><a href="#" class="nav-link" id='motor1_test' onclick='socket.emit(this.id,true)'>Test Motor 1</a></li>
                 <li class="nav-item"><a href="#" class="nav-link" id='motor2_test' onclick='socket.emit(this.id,true)'>Test Motor 2</a></li>
                 <li class="nav-item"><a href="#" class="nav-link" id='motor3_test' onclick='socket.emit(this.id,true)'>Test Motor 3</a></li>
@@ -216,15 +232,15 @@
                 <li class="nav-item"><a href="#" class="nav-link" id='move_south' onclick='socket.emit(this.id,true)'>Move South</a></li>
                 <li class="nav-item"><a href="#" class="nav-link" id='move_west' onclick='socket.emit(this.id,true)'>Move West</a></li>
             </ul>
-        </nav>
+        </div>
         <div class="row">
             <div class="col-sm-2"></div>
             <div class='col-sm-3' style='position:relative;text-align:center;'>
                 <img class="img-fluid" src="images/prop-rotational-directions.jpg" alt="Quad Overview">
-                <h4 id="motor1_display" class="motor_display" style='top:120px;left:70px;'>0%</h4>    
-                <h4 id="motor3_display" class="motor_display" style='top:120px;right:70px;'>0%</h4>
-                <h4 id="motor4_display" class="motor_display" style='top:180px;left:70px;'>0%</h4>
-                <h4 id="motor2_display" class="motor_display" style='top:180px;right:70px;'>0%</h4>
+                <h4 id="motor1_display" class="motor_display" style='top:120px;left:60px;'>0%</h4>    
+                <h4 id="motor3_display" class="motor_display" style='top:120px;right:60px;'>0%</h4>
+                <h4 id="motor4_display" class="motor_display" style='top:160px;left:60px;'>0%</h4>
+                <h4 id="motor2_display" class="motor_display" style='top:160px;right:60px;'>0%</h4>
                 <div id="direction" class="motor_display" style="top:200px;left:200px;"></div>
             </div>
             <div class="col-sm-3">

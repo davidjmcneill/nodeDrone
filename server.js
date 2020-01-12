@@ -126,9 +126,7 @@ var i2c1 = i2c.openSync(1);
 var master_throttle = {Unit:0,M1:0,M2:0,M3:0,M4:0};
     
 //define external modules
-let test_motor = require('./test_motor.js');
-let arm_motor = require('./arm_motor.js');
-let run_motor = require('./run_motor.js');
+let motor_controls = require('./motor_controls.js');
 let landing_gear = require('./landing_gear.js');
 let IMU = require('./imu.js');
 let ADC = require('./adc.js');
@@ -142,14 +140,16 @@ app.get('/', function (req, res) {
 server.listen(8080);
 console.log("Running at Port 8080");
 
-//Initialize landing gear
+///////////////////////////////////////////////////////
+//INITIALIZE all electronic controls to READY state
+//
+//Landing Gear
 landing_gear.WakeGear(LandingGearPin);
-
-//Initialize IMU
+//IMU
 IMU.SetUpdateInterval(mpu9255_obj,madgwick);
-
-//Initialize ADC by sending control byte
+//ADC by sending control byte
 i2c1.i2cWriteSync(0x48,1,0x40);
+///////////////////////////////////////////////////////
 
 //check orientation and correct, run clearInterval(orientation) once landed
 function CheckOrientation() {
@@ -237,17 +237,16 @@ function DistanceFromGround(voltage) {
             }
         });  
     }, 100);
-    
     return voltage;
 }
 
 //Store initial altitude measurement
-var init_alt = 0;
+var initial_altitude = 0;
 setTimeout(function(){
     IMU.GetAltitude(BMP180_obj,function(pressure) {
         if (pressure) {
-            var altitude = 44330 * (1 - Math.pow((pressure/100)/1013.25,(1/5.255)));
-            init_alt = altitude;
+            var current_altitude = 44330 * (1 - Math.pow((pressure/100)/1013.25,(1/5.255)));
+            initial_altitude = current_altitude;
         }
     });
 }, 2000);
@@ -291,40 +290,40 @@ io.on('connection', function (client) {// Web Socket Connection
     });
     
     client.on('motor_arm', function() { //get button status from client
-        arm_motor.ArmMotor(motor1Pin,function(){
+        motor_controls.ArmMotor(motor1Pin,function(){
             io.emit("drone_status","Motor 1 Armed!");
         });
-        arm_motor.ArmMotor(motor2Pin,function(){
+        motor_controls.ArmMotor(motor2Pin,function(){
             io.emit("drone_status","Motor 2 Armed!");
         });
-        arm_motor.ArmMotor(motor3Pin,function(){
+        motor_controls.ArmMotor(motor3Pin,function(){
             io.emit("drone_status","Motor 3 Armed!");
         });
-        arm_motor.ArmMotor(motor4Pin,function(){
+        motor_controls.ArmMotor(motor4Pin,function(){
             io.emit("drone_status","Motor 4 Armed!");
         });
     });
   
     client.on('motor1_test', function() { //get button status from client
-        test_motor.RunMotorTest(motor1Pin,function(throttle){
+        motor_controls.RunMotorTest(motor1Pin,function(throttle){
             io.emit("drone_status",{id:"motor_throttle", name:"motor1", throttle: throttle});
         });
     });
 
     client.on('motor2_test', function() { //get button status from client
-        test_motor.RunMotorTest(motor2Pin,function(throttle){
+        motor_controls.RunMotorTest(motor2Pin,function(throttle){
             io.emit("drone_status",{id:"motor_throttle", name:"motor2", throttle: throttle});
         });
     });
 
     client.on('motor3_test', function() { //get button status from client
-        test_motor.RunMotorTest(motor3Pin,function(throttle){
+        motor_controls.RunMotorTest(motor3Pin,function(throttle){
             io.emit("drone_status",{id:"motor_throttle", name:"motor3", throttle: throttle});
         });
     });
 
     client.on('motor4_test', function() { //get button status from client
-        test_motor.RunMotorTest(motor4Pin,function(throttle){
+        motor_controls.RunMotorTest(motor4Pin,function(throttle){
             io.emit("drone_status",{id:"motor_throttle", name:"motor4", throttle: throttle});
         });
     });
