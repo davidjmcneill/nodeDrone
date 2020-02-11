@@ -159,14 +159,14 @@ function CheckOrientation() {
             var roll_change = pitch_change = yaw_change = 0;
             var error_x = error_y = error_z = 0;
             var Kp = 0.5, Ki = 0.01, inv_dt = 5;
-            var target_x = 0,target_y = 0,target_z = -90;//determined by testing (face directly north
+            var target_x = 0,target_y = 0,target_z = -90;//determined by testing (face directly north)
             if (pyr) {
                 io.emit("mpu9255",pyr);
                 error_x = pyr["roll"] - target_x;
                 error_y = pyr["pitch"] - target_y;
                 error_z = pyr["heading"] - target_z;
 
-                roll_change = (Kp*error_x) + (Ki*inv_dt*error_x);//Proportional + Integral + Derivative
+                roll_change = (Kp*error_x) + (Ki*inv_dt*error_x);//Proportional + Integral (No Derivative)
                 pitch_change = (Kp*error_y) + (Ki*inv_dt*error_y);
                 yaw_change = (Kp*error_z) + (Ki*inv_dt*error_z);
 
@@ -203,6 +203,7 @@ function CheckOrientation() {
                 }
 
                 //output status to client browser
+                //io.emit("drone_status",{id:"motor_throttle", name:"motor_unit", throttle: master_throttle.Unit.toFixed(1)});
                 io.emit("drone_status",{id:"motor_throttle", name:"motor1", throttle: master_throttle.M1.toFixed(1)});
                 io.emit("drone_status",{id:"motor_throttle", name:"motor2", throttle: master_throttle.M2.toFixed(1)});
                 io.emit("drone_status",{id:"motor_throttle", name:"motor3", throttle: master_throttle.M3.toFixed(1)});
@@ -228,16 +229,14 @@ function CheckOrientation() {
 }
 
 //Get Distance from ground (ultrasonic sensor)
-function DistanceFromGround(voltage) {
-    //get altitude measurement every second
-    var WaitForLoad = setInterval(function() {
-        ADC.PCF8591_Data(i2c1,0x40,function(voltage) {
-            if (voltage) {
-                clearInterval(WaitForLoad);
-            }
-        });  
-    }, 100);
-    return voltage;
+function DistanceFromGround(distance) {
+    //get measurement from sensor
+    ADC.PCF8591_Data(i2c1,0x40,function(distance) {
+        if (!distance) {
+            DistanceFromGround();
+        }
+    }); 
+    return distance;
 }
 
 //Store initial altitude measurement
@@ -330,63 +329,71 @@ io.on('connection', function (client) {// Web Socket Connection
     
     client.on('landing_gear_deploy', function() { //get button status from client
         landing_gear.DeployGear(LandingGearPin);
-    }); 
+    });
     
     client.on('landing_gear_retract', function() { //get button status from client
         landing_gear.RetractGear(LandingGearPin);
-    });   
+    });
     
     client.on('hover_test', function() { //get button status from client
         //define PID controller variables
-        var hover_target = 24;//target for 24 inches away from ground
-        var current_ground_distance = 10;
-        var difference = hover_target - current_ground_distance;
+        var drone_target = 24;//target for 24 inches away from ground
+        var initial_ground_distance = DistanceFromGround();
+        var current_ground_distance = initial_ground_distance;
+        var target_distance = drone_target - current_ground_distance;
 
-        //Initialize orientation checking
-        CheckOrientation();
-        //Intialize distance from ground checks
         setInterval(function() {
-            io.emit("drone_status",{id:"hover_test", current:current_ground_distance, target: hover_target});
-            //check how many inches remaining to get 24 inches in the air
-            if (difference > 2) {
-                //increase throttle by 5%, maximum of 60%
-                master_throttle.Unit = master_throttle.Unit + 5;
-                if (master_throttle.Unit <= 0) {
-                    master_throttle.Unit = 0;
-                }
-                if (master_throttle.Unit > 59) {
-                    master_throttle.Unit = 60;
+            //for each cycle, determine drone location vs ground
+            current_ground_distance = DistanceFromGround();
+            target_distance = drone_target - current_ground_distance;
+            var Kp = 0.5, Ki = 0.01, inv_dt = 5;
+            //output feedback to user interface
+            io.emit("drone_status",{id:"hover_test", current:current_ground_distance, target: target_distance});
+            
+            //check whether drone should be in air or on ground
+            if (drone_target === 24) { //drone should be in air and trying to stabilize at 24 inches from ground
+                //if drone is below 24 inches, adjust throttle based on target distance away (larger distance = higher throttle)
+                master_throttle_change = (Kp*target_distance) + (Ki*inv_dt*target_distance);//Proportional + Integral (No Derivative)
+                
+                //raise landing gear when near hovering level
+                if (target_distance < 2) {
+                    landing_gear.RetractGear(LandingGearPin);
                 }
                 
-                //send new throttle value to each motor
-                var motor1_array = {pin: motor1Pin, throttle: master_throttle.Unit};
-                var motor2_array = {pin: motor2Pin, throttle: master_throttle.Unit};
-                var motor3_array = {pin: motor3Pin, throttle: master_throttle.Unit};
-                var motor4_array = {pin: motor4Pin, throttle: master_throttle.Unit};
-                //SetAllMotorsSpeed(motor1_array,motor2_array,motor3_array,motor4_array,10,function(throttle)
+            } else if (drone_target === 10) {
+                //deploy landing gear while lowering
+                landing_gear.DeployGear(LandingGearPin);
                 
-                //output status to client browser
-                io.emit("drone_status",{id:"motor_throttle", name:"motor1", throttle: master_throttle.Unit.toFixed(1)});
-                io.emit("drone_status",{id:"motor_throttle", name:"motor2", throttle: master_throttle.Unit.toFixed(1)});
-                io.emit("drone_status",{id:"motor_throttle", name:"motor3", throttle: master_throttle.Unit.toFixed(1)});
-                io.emit("drone_status",{id:"motor_throttle", name:"motor4", throttle: master_throttle.Unit.toFixed(1)});
-
-                //get current distance from ground
-                current_ground_distance = 10;
-            } else {
-                //decrease throttle by 5%, take down to 0%
-                master_throttle.Unit = master_throttle.Unit - 5;
-                if (master_throttle.Unit <= 0) {
-                    master_throttle.Unit = 0;
-                }
-                if (master_throttle.Unit > 59) {
-                    master_throttle.Unit = 60;
-                }
+                //if drone is in-air, above ground, adjust throttle based on target distance away (larger distance = higher throttle)
+                master_throttle_change = -((Kp*target_distance) + (Ki*inv_dt*target_distance));//Proportional + Integral (No Derivative)
             }
-        }, 1000);
-        //pick up landing gear once in air
-        //landing_gear.RetractGear(LandingGearPin);
+
+            //Adjust motor throttle based on target distance away
+            master_throttle.Unit = master_throttle.Unit + master_throttle_change;
+
+            if (master_throttle.Unit <= 0) {
+                master_throttle.Unit = 0;
+            }
+            if (master_throttle.Unit > 59) {
+                master_throttle.Unit = 60;
+            }
+            
+            //make sure drone is oriented correctly then adjust for all motors individually
+            CheckOrientation();
+
+            //send new throttle value to each motor
+//            var motor1_array = {pin: motor1Pin, throttle: master_throttle.Unit};
+//            var motor2_array = {pin: motor2Pin, throttle: master_throttle.Unit};
+//            var motor3_array = {pin: motor3Pin, throttle: master_throttle.Unit};
+//            var motor4_array = {pin: motor4Pin, throttle: master_throttle.Unit};
+            //SetAllMotorsSpeed(motor1_array,motor2_array,motor3_array,motor4_array,10,function(throttle)
+
+            //output status to client browser
+//            io.emit("drone_status",{id:"motor_throttle", name:"motor1", throttle: master_throttle.Unit.toFixed(1)});
+//            io.emit("drone_status",{id:"motor_throttle", name:"motor2", throttle: master_throttle.Unit.toFixed(1)});
+//            io.emit("drone_status",{id:"motor_throttle", name:"motor3", throttle: master_throttle.Unit.toFixed(1)});
+//            io.emit("drone_status",{id:"motor_throttle", name:"motor4", throttle: master_throttle.Unit.toFixed(1)});
+        }, 500);
     });   
 });
-
 
