@@ -27,6 +27,7 @@
             //get altitude measurement every second
             var altitude_scan = setInterval(function() {
                 socket.emit("altitude",true);
+                //socket.emit("D2G",true);
             }, 1000);
             
             //check quad orientation every half second
