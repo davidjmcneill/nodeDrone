@@ -238,11 +238,8 @@ function CheckOrientation() {
 //Get Distance from ground (ultrasonic sensor)
 function DistanceFromGround(distance) {
     //Distance from ground (ultrasonic sensor)
-    ADC.PCF8591_Data(i2c1,0x40,function(distance) {
-        if (distance) {
-            distance_from_ground = distance;
-        }
-    }); 
+    distance = ADC.PCF8591_Data(i2c1,0x40); 
+    return distance;
 }
 
 //Store initial altitude measurement
