@@ -1,10 +1,18 @@
 //This module is used to get Analog Signal converted to digital through i2c connection
 //from the PCF8591 board
 
-function PCF8591_Data(i2c1,hex_addr) {
+function PCF8591_Data(i2c1,hex_addr,cb) {
     var PCF8591_ADDR = 0x48;
-    data = i2c1.readByteSync(PCF8591_ADDR,hex_addr);
-    return data;
+    //data = i2c1.readByteSync(PCF8591_ADDR,hex_addr);
+    i2c1.readByteSync(PCF8591_ADDR,hex_addr, function (err,byte) {
+        if (err) {
+            console.log(err);
+        }
+        console.log(byte);
+        //return data through call back
+        cb(byte);
+    });
+    //return data;
 }
 
 function PCF8591_Data_OLD(i2c1,hex_addr,cb) {

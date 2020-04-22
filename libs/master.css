@@ -1,24 +1,16 @@
 body{
     font-family:"Roboto", "Helvetica Neue", Arial, sans-serif;
+    margin-top:10px;
 }
-.motor_display {
-    position:absolute;
-    font-weight:bold;
+button{
+    margin:5px;
 }
-.custom-navbar {
-    background:linear-gradient(to bottom, #43609c 0%, rgba(19, 148, 87, 0.7) 100%);
+.card{
+    margin-bottom:5px;
 }
-.custom-navbar ul {
-    width:100%;
-    color:rgba(255,255,255,0.8);
+.small-text{
+    font-size:70%;
 }
-.custom-navbar .heading {
-    color:rgba(255,255,255,0.45);
-    font-size: 90%;
-}
-.custom-navbar ul li a {
-    color:rgba(255,255,255,0.8);
-}
-.custom-navbar ul li a:hover {
-    color:rgba(255,255,255,1);
+.small-text .table td,.small-text .table th{
+    padding:4px;
 }
