@@ -1,6 +1,7 @@
 # NodeDrone
 
 Autonomous Drone - RaspberryPi - NodeJS
+
 A fully autonomous drone using the Nodejs framework. Drone broadcasts local Wi-Fi connection for user to connect and provide instructions through a web interface application. 
 
 ## Prerequisites
