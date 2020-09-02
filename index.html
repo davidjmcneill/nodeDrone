@@ -43,8 +43,14 @@
 
             if (data) {
                 //update gps sections
-                $('#gps_coordinates').html(data['lat']+","+data['lon']);
-                $('#gps_movement').html(data['speed']+","+data['alt']);
+                if (data['lat'] !== undefined) {
+                    $('#gps_coordinates').html(data['lat']+","+data['lon']);
+                    $('#gps_movement').html(data['speed']+", "+data['alt']+" meters");
+                } else {
+                    $('#gps_coordinates').html("GPS: NO FIX ("+data['timer']+" seconds)");
+                    $('#gps_movement').html("GPS: NO FIX ("+data['timer']+" seconds)");
+                }
+                
             }
         });
 
@@ -132,7 +138,7 @@
                     var current = data.current;
                     var target = data.target;
                     $("#drone_status").html("Hover Testing");
-                    $("#status_messages #header").after("<tr><td>"+timestamp+"</td><td><i>Hover Test</i> Current Distance: "+current+"in, Target Distance: "+target+"in</td></tr>");
+                    $("#status_messages #header").after("<tr><td>"+timestamp+"</td><td><i>Hover Test</i> Current Distance: "+current+", Target Distance: "+target+"</td></tr>");
 
                 }else {
                     $("#status_messages #header").after("<tr><td>"+timestamp+"</td><td>"+data+"</td></tr>");
@@ -143,7 +149,7 @@
     </script>
     <link rel="stylesheet" href="libs/bootstrap.min.css">
     <link rel="stylesheet" href="libs/master.css">
-    <link href="libs/font-awesome.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="libs/font-awesome.min.css">
 </head>
     
 <body>

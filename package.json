@@ -1,8 +1,11 @@
 {
     "name": "NodeDrone",
     "version": "1.0.0",
-    "keywords": ["Rrone", "Raspberrypi", "NodeJS", "Quadcopter", "Autonomous"],
+    "keywords": ["Drone", "Raspberrypi", "NodeJS", "Quadcopter", "Autonomous"],
     "author": "David McNeill",
     "contributors": [],
-    "dependencies": {}
+    "dependencies": {
+        "timer-node",
+        
+    }
 }

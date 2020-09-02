@@ -17,6 +17,7 @@ var i2c = require('i2c-bus');
 var AHRS = require('ahrs');
 var mpu9255 = require('./mpu9255.js');
 var gpsd = require('node-gpsd');
+const Timer = require('timer-node');
 
 //use reference files located in libs directory
 app.use('/libs', express.static(__dirname + '/libs'));
@@ -150,6 +151,12 @@ var listener = new gpsd.Listener({
     parse: true
 });
 
+//setup time elapsed objects
+const timer = new Timer('test-timer');
+const timer1 = new Timer('test-timer');
+const timer_GPS = new Timer('test-timer');
+var gps_time_elapsed = 0;
+
 //Initialize i2c communication bus
 var i2c1 = i2c.openSync(1);
     
@@ -189,7 +196,8 @@ var ground_distance = 0;
 var initial_altitude, current_altitude = 0;
 var direction = 0;
 var pitch = 0, roll = 0, yaw = 0;
-var gps_latitude, gps_longitude, gps_altitude, gps_speed = 0;     
+var gps_latitude, gps_longitude, gps_altitude, gps_speed, gps_status = 0;//gps data storage    
+var heading = 0;//0 = ascending, 1 = descending
 
 //Get current battery voltage and send to listeners
 function Battery() {
@@ -256,6 +264,7 @@ function GPS() {
                 gps_longitude = tpv['lon'];
                 gps_altitude = tpv['alt'];
                 gps_speed = tpv['speed'];
+                gps_status = tpv['status'];
             });
 
             listener.connect(function() {
@@ -312,8 +321,7 @@ function Orientation() {
 }
 
 //Check Orientation and correct
-function StabilityCheck() {
-    Orientation();
+function Stabilize() {
     setTimeout(function() {
         var roll_change = pitch_change = yaw_change = 0;
         var error_x = error_y = error_z = 0;
@@ -384,6 +392,97 @@ function StabilityCheck() {
     return;
 }
 
+function HoverTest() {
+    //define variables
+    var target_alt = (gps_altitude + 2);//target for 24 inches away from ground
+    var initial_alt = gps_altitude;
+    var master_throttle_change = 0;
+
+    var hover_test = setInterval(function() {
+        Orientation();
+        console.log(Math.abs(pitch)+", "+Math.abs(roll));
+        //stabilize drone if pitch or roll are off by more than 3.5 degrees
+        if (Math.abs(pitch) > 3.5 || Math.abs(roll) > 3.5) {
+            console.log("stabilizing..");
+            Stabilize();
+        } else {
+            //for each cycle, determine drone location vs ground
+            var error_distance = (target_alt - gps_altitude);
+            var Kp = 0.3, Ki = 0.01, inv_dt = 0.5;
+            //output feedback to user interface
+            io.emit("drone_status",{id:"hover_test", current:gps_altitude, target: target_alt, error: error_distance});
+
+            //check whether drone should be in air or on ground
+            if (heading === 0 && gps_altitude < target_alt) { //drone will ascend and try to stabilize 2 meters in the air
+                //adjust throttle based on target distance away (larger distance = higher throttle)
+                master_throttle_change = (Kp*error_distance) + (Ki*inv_dt*error_distance);//Proportional + Integral (No Derivative)
+
+                //raise landing gear when near hovering level
+                if (error_distance < 0.5) {
+                    landing_gear.RetractGear(LandingGearPin);
+                }
+
+            } else if (heading === 0 && gps_altitude > target_alt) {//drone should  hover at 2m for 60 seconds
+                if (timer.isRunning() === false) {
+                    timer.start();
+                }
+
+                //adjust throttle based on target distance away (larger distance = higher throttle)
+                master_throttle_change = -((Kp*error_distance) + (Ki*inv_dt*error_distance));//Proportional + Integral (No Derivative)
+
+                //once drone has hovered for 60 seconds, deploy landing gear and reduce throttle
+                if (timer.seconds() > 60) {
+                    timer.stop();
+                    timer.clear();
+                    //deploy landing gear while lowering
+                    landing_gear.DeployGear(LandingGearPin);
+                    timer1.start();
+                }  
+                //wait 5 seconds for landing gear to deploy then descend to ground
+                if (timer1.seconds() > 5) {
+                    timer1.stop();
+                    heading = 1;
+                }
+            } else if (heading === 1 && gps_altitude > initial_alt) {//drone will decend and land on the ground
+                if (timer1.seconds() > 5) {
+                    //adjust throttle based on target distance away (larger distance = higher throttle)
+                    master_throttle_change = -((Kp*error_distance) + (Ki*inv_dt*error_distance));//Proportional + Integral (No Derivative)
+                }
+                //drone should be resting on the ground, end of test, stop the loop
+                if (error_distance < 0.1) {
+                    master_throttle.Unit = 0;
+                    master_throttle_change = 0;
+                    clearInterval(hover_test);
+                }
+            }
+
+            //Adjust motor throttle based on target distance away
+            master_throttle.Unit = master_throttle.Unit + master_throttle_change;
+
+            if (master_throttle.Unit <= 0) {
+                master_throttle.Unit = 0;
+            }
+            if (master_throttle.Unit > 59) {//propeller does not spin until 30%+
+                master_throttle.Unit = 60;
+            }
+
+            //send new throttle value to each motor
+    //            var motor1_array = {pin: motor1Pin, throttle: master_throttle.Unit};
+    //            var motor2_array = {pin: motor2Pin, throttle: master_throttle.Unit};
+    //            var motor3_array = {pin: motor3Pin, throttle: master_throttle.Unit};
+    //            var motor4_array = {pin: motor4Pin, throttle: master_throttle.Unit};
+            //SetAllMotorsSpeed(motor1_array,motor2_array,motor3_array,motor4_array,10,function(throttle)
+
+            //output status to client browser
+            io.emit("drone_status",{id:"motor_throttle", name:"motor1", throttle: master_throttle.Unit.toFixed(1)});
+            io.emit("drone_status",{id:"motor_throttle", name:"motor2", throttle: master_throttle.Unit.toFixed(1)});
+            io.emit("drone_status",{id:"motor_throttle", name:"motor3", throttle: master_throttle.Unit.toFixed(1)});
+            io.emit("drone_status",{id:"motor_throttle", name:"motor4", throttle: master_throttle.Unit.toFixed(1)});
+        }
+    }, 500);
+    return;
+}
+
 ////////////////////////////////////////////////////////////////////
 ////////////////////// Initial Data Readings //////////////////////////
 /////////////////////////////////////////////////////////////////////////////
@@ -413,22 +512,33 @@ setTimeout(function(){
 //////////////////////////// Routine Checks //////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 function RoutineChecks() {
-    setTimeout(function() {
-        Battery();
-    }, 100);
-    setTimeout(function() {
-        GroundDistance();
-    }, 200);
-    setTimeout(function(){
-        Altitude();
-    }, 300);
-    setTimeout(function(){
-        Orientation();
-    }, 400);
+//    setTimeout(function(){
+//        Orientation();
+//    }, 100);
     setTimeout(function(){
         GPS();
-        io.emit("gps",{lat:gps_latitude, lon:gps_longitude, alt:gps_altitude, speed:gps_speed});
-    }, 500);
+        if (gps_latitude === undefined && timer_GPS.isRunning() === false) {
+            gps_time_elapsed = 0;
+            timer_GPS.start();
+        } else if (gps_latitude === undefined && timer_GPS.isRunning() === true) {
+            timer_GPS.stop();
+            gps_time_elapsed = gps_time_elapsed + timer_GPS.seconds();
+            timer_GPS.start();
+        } else if (gps_latitude !== undefined && timer_GPS.isRunning() === true) {
+            timer_GPS.stop();
+            timer_GPS.clear();
+        }
+        io.emit("gps",{lat:gps_latitude, lon:gps_longitude, alt:gps_altitude, speed:gps_speed, timer:gps_time_elapsed});
+    }, 50);
+    setTimeout(function() {
+        Battery();
+    }, 150);
+    setTimeout(function() {
+        GroundDistance();
+    }, 250);
+    setTimeout(function(){
+        Altitude();
+    }, 350);
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -495,61 +605,7 @@ io.on('connection', function (client) {// Web Socket Connection
     });
     
     client.on('hover_test', function() { //get button status from client
-        //define PID controller variables
-        var drone_target = 24;//target for 24 inches away from ground
-        var initial_ground_distance = ground_distance;
-        var current_ground_distance = initial_ground_distance;
-        var target_distance = drone_target - current_ground_distance;
-
-        setInterval(function() {
-            //for each cycle, determine drone location vs ground
-            current_ground_distance = ground_distance;
-            target_distance = drone_target - current_ground_distance;
-            var Kp = 0.3, Ki = 0.01, inv_dt = 0.5;
-            //output feedback to user interface
-            io.emit("drone_status",{id:"hover_test", current:current_ground_distance, target: target_distance});
-            
-            //check whether drone should be in air or on ground
-            if (drone_target === 24) { //drone should be in air and trying to stabilize at 24 inches from ground
-                //if drone is below 24 inches, adjust throttle based on target distance away (larger distance = higher throttle)
-                master_throttle_change = (Kp*target_distance) + (Ki*inv_dt*target_distance);//Proportional + Integral (No Derivative)
-                
-                //raise landing gear when near hovering level
-                if (target_distance < 2) {
-                    //landing_gear.RetractGear(LandingGearPin);
-                }
-                
-            } else if (drone_target === 10) {
-                //deploy landing gear while lowering
-                //landing_gear.DeployGear(LandingGearPin);
-                
-                //if drone is in-air, above ground, adjust throttle based on target distance away (larger distance = higher throttle)
-                master_throttle_change = -((Kp*target_distance) + (Ki*inv_dt*target_distance));//Proportional + Integral (No Derivative)
-            }
-
-            //Adjust motor throttle based on target distance away
-            master_throttle.Unit = master_throttle.Unit + master_throttle_change;
-
-            if (master_throttle.Unit <= 0) {
-                master_throttle.Unit = 0;
-            }
-            if (master_throttle.Unit > 59) {
-                master_throttle.Unit = 60;
-            }
-
-            //send new throttle value to each motor
-//            var motor1_array = {pin: motor1Pin, throttle: master_throttle.Unit};
-//            var motor2_array = {pin: motor2Pin, throttle: master_throttle.Unit};
-//            var motor3_array = {pin: motor3Pin, throttle: master_throttle.Unit};
-//            var motor4_array = {pin: motor4Pin, throttle: master_throttle.Unit};
-            //SetAllMotorsSpeed(motor1_array,motor2_array,motor3_array,motor4_array,10,function(throttle)
-
-            //output status to client browser
-            io.emit("drone_status",{id:"motor_throttle", name:"motor1", throttle: master_throttle.Unit.toFixed(1)});
-            io.emit("drone_status",{id:"motor_throttle", name:"motor2", throttle: master_throttle.Unit.toFixed(1)});
-            io.emit("drone_status",{id:"motor_throttle", name:"motor3", throttle: master_throttle.Unit.toFixed(1)});
-            io.emit("drone_status",{id:"motor_throttle", name:"motor4", throttle: master_throttle.Unit.toFixed(1)});
-        }, 500);
+        HoverTest();
     });   
 });
 
