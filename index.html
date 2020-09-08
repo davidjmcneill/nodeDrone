@@ -122,7 +122,7 @@
         //listen for drone status messages and append to table
         socket.on('drone_status', function(data) {
             //check drone status table, only show a maximum number at a time
-            if ($('#status_messages tr').length > 6) {
+            if ($('#status_messages tr').length > 10) {
                 $('#status_messages tr:last').remove();
             }
             //timestamp output = YYYY-MM-DD H:MM:SS
@@ -141,11 +141,10 @@
                     $("#status_messages #header").after("<tr><td>"+timestamp+"</td><td><i>Hover Test</i> Current Distance: "+current+", Target Distance: "+target+"</td></tr>");
 
                 }else {
-                    $("#status_messages #header").after("<tr><td>"+timestamp+"</td><td>"+data+"</td></tr>");
+                    $("#status_messages #header").after("<tr><td>"+timestamp+"</td><td>"+id+": "+JSON.stringify(data)+"</td></tr>");
                 }
             }
         });
-
     </script>
     <link rel="stylesheet" href="libs/bootstrap.min.css">
     <link rel="stylesheet" href="libs/master.css">
@@ -154,27 +153,19 @@
     
 <body>
     <div class="container-fluid">
+        <span class="fa fa-battery"> <span id="battery_life_status">0%</span></span>
+        <span class="fa fa-map-marker"> <span id="gps_coordinates">0</span></span>
+        <span class="fa fa-tachometer"> <span id="gps_movement">0</span></span>
+        <br/>
         <div class="row card-deck">
             <div class="card">
-                <div class="card-header">Drone Actions</div>
+                <div class="card-header">Controls</div>
                  <!-- (empty) battery-0, battery-1, battery-2, battery-3, battery (full) -->
                 <div class="card-body">
-                    <h5>Status</h5>
-                    <span class="fa fa-battery"> <span id="battery_life_status">0%</span></span>
-                    <br/>
-                    <span class="fa fa-map-marker"> <span id="gps_coordinates">0</span></span>
-                    <br/>
-                    <span class="fa fa-tachometer"> <span id="gps_movement">0</span></span>
-                    <br/><br/>
-                    <h5>Launch Sequence</h5>
+                    <h5>Flight Preparation</h5>
                     <button class="btn btn-success" id='motor_arm' onclick='socket.emit(this.id,true)'>Arm Motors</button>
-                    <button class="btn btn-success" id='hover_test' onclick='socket.emit(this.id,true)'>Hover Test</button>
-                </div>
-            </div>
-            
-            <div class="card">
-                <div class="card-header">Test Functions</div>
-                <div class="card-body">
+                    <button class="btn btn-danger" id='motor_disarm' onclick='socket.emit(this.id,true)'>Disarm Motors</button>
+                    <br/><br/>
                     <h5>Motors</h5>
                     <button class="btn btn-primary" id='motor1_test' onclick='socket.emit(this.id,true)'>Test Motor 1</button>
                     <button class="btn btn-primary" id='motor2_test' onclick='socket.emit(this.id,true)'>Test Motor 2</button>
@@ -190,20 +181,67 @@
                     <button class="btn btn-info" id='face_east' onclick='socket.emit(this.id,true)'>Face East</button>
                     <button class="btn btn-info" id='face_south' onclick='socket.emit(this.id,true)'>Face South</button>
                     <button class="btn btn-info" id='face_west' onclick='socket.emit(this.id,true)'>Face West</button>
+                    <h5>Master Throttle Levels</h5>
+                    <div class="card-group text-center">
+                        <div class="card" style="margin:0;">
+                            <a href="#" id="master_throttle" onclick="socket.emit(this.id,0)">0</a>
+                        </div>
+                        <div class="card" style="margin:0;">
+                            <a href="#" id="master_throttle" onclick="socket.emit(this.id,10)">10</a>
+                        </div>
+                        <div class="card" style="margin:0;">
+                            <a href="#" id="master_throttle" onclick="socket.emit(this.id,20)">20</a>
+                        </div>
+                        <div class="card" style="margin:0;">
+                            <a href="#" id="master_throttle" onclick="socket.emit(this.id,30)">30</a>
+                        </div>
+                        <div class="card" style="margin:0;">
+                            <a href="#" id="master_throttle" onclick="socket.emit(this.id,40)">40</a>
+                        </div>
+                        <div class="card" style="margin:0;">
+                            <a href="#" id="master_throttle" onclick="socket.emit(this.id,50)">50</a>
+                        </div>
+                        <div class="card" style="margin:0;">
+                            <a href="#" id="master_throttle" onclick="socket.emit(this.id,60)">60</a>
+                        </div>
+                        <div class="card" style="margin:0;">
+                            <a href="#" id="master_throttle" onclick="socket.emit(this.id,70)">70</a>
+                        </div>
+                        <div class="card" style="margin:0;">
+                            <a href="#" id="master_throttle" onclick="socket.emit(this.id,80)">80</a>
+                        </div>
+                        <div class="card" style="margin:0;">
+                            <a href="#" id="master_throttle" onclick="socket.emit(this.id,90)">90</a>
+                        </div>
+                        <div class="card" style="margin:0;">
+                            <a href="#" id="master_throttle" onclick="socket.emit(this.id,100)">100</a>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <div class="card text-center">
                 <div class="card-header">Quad Overview</div>
                 <img class="card-img-top img-fluid" src="images/prop-rotational-directions.png" alt="Top View">
-                <div class="card-body small-text">
+                <div class="card-body">
                     <table class="table table-bordered">
                         <tr><th colspan="2">Heading</th></tr>
                         <tr><td id="direction" colspan="2">0</td></tr>
-                        <tr><th>M1</th><th>M3</th></tr>
-                        <tr><td id="motor1_display">0%</td><td id="motor3_display">0%</td></tr>
-                        <tr><td id="motor4_display">0%</td><td id="motor2_display">0%</td></tr>
-                        <tr><th>M4</th><th>M2</th></tr>
+                        <tr><th colspan="2">Unit: <span id="unit_display">0%</span></th></tr>
+                        <tr><th>M1: <span id="motor1_display">0%</span></th><th>M3: <span id="motor3_display">0%</span></th></tr>
+                        <tr><th>M4: <span id="motor4_display">0%</span></th><th>M2: <span id="motor2_display">0%</span></th></tr>
+                    </table>
+                </div>
+            </div>
+                    
+            <div class="card">
+                <div class="card-header">Status Messages</div>
+                <div class="card-body small-text">
+                    <table id="status_messages" class="table table-bordered">
+                        <tr id="header">
+                            <th>Timestamp</th>
+                            <th>Details</th>
+                        </tr>
                     </table>
                 </div>
             </div>
@@ -211,13 +249,6 @@
             <div class="card">
                 <div class="card-header">Logging</div>
                 <div class="card-body small-text">
-                    <table id="status_messages" class="table table-bordered">
-                        <tr><th colspan="2">Status Messages</th></tr>
-                        <tr id="header">
-                            <th>Timestamp</th>
-                            <th>Details</th>
-                        </tr>
-                    </table>
                     <table id="battery_readings" class="table table-bordered">
                         <tr><th colspan="2">Latest Battery Readings</th></tr>
                         <tr id="header">

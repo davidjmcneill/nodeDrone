@@ -11,15 +11,15 @@ function SetUpdateInterval(mpu,madgwick) {
 
         setInterval(function(){
             mag = mpu.ak8963.getMagAttitude();
-        }, 1/100);
+        }, 50);
         setInterval(function(){
             accel = mpu.getAccel();
             gyro = mpu.getGyro();
-        }, 1/1000);
+        }, 50);
 
         setInterval(function(){
             madgwick.update(gyro[0]*(Math.PI / 180), gyro[1]*(Math.PI / 180), gyro[2]*(Math.PI / 180), accel[0], accel[1], accel[2], mag[0], mag[1], mag[2]);
-        }, 1/5000);
+        }, 200);
     }
 }
 

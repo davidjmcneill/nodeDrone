@@ -2,25 +2,26 @@
 //from the PCF8591 board
 
 function PCF8591_Data(i2c1,hex_addr,cb) {
-    var PCF8591_ADDR = 0x48;
-    //data = i2c1.readByteSync(PCF8591_ADDR,hex_addr);
-    i2c1.readByteSync(PCF8591_ADDR,hex_addr, function (err,byte) {
+    var PCF8591_ADDR = 0x48;var buff=Buffer.alloc(4);
+    i2c1.readI2cBlock(PCF8591_ADDR,hex_addr,4,buff, function (err,bytesread,buff) {
         if (err) {
             console.log(err);
         }
-        console.log(byte);
+        console.log(buff[3]);
+        //console.log(bytesread);
         //return data through call back
-        cb(byte);
+        cb(buff[3]);
     });
     //return data;
 }
 
 function PCF8591_Data_OLD(i2c1,hex_addr,cb) {
     var PCF8591_ADDR = 0x48;
-    i2c1.readByteSync(PCF8591_ADDR,hex_addr, function (err,byte) {
+    i2c1.readByte(PCF8591_ADDR,hex_addr, function (err,byte) {
         if (err) {
-            throw err;
+            console.log(err);
         }
+        console.log(byte);
         //return data through call back
         cb(byte);
     });

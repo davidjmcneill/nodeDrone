@@ -11,7 +11,8 @@ var io = require('socket.io')(server, {
 }); 
 //pull in Raspberrypi / NPM Modules
 var fs = require('fs'); 
-var Gpio = require('pigpio').Gpio;
+var pigpio = require('pigpio');
+var Gpio = pigpio.Gpio;
 var RaspiSensors = require('raspi-sensors');
 var i2c = require('i2c-bus');
 var AHRS = require('ahrs');
@@ -26,12 +27,13 @@ app.use('/images', express.static(__dirname + '/images'));
 //use font files located in font directory
 app.use('/fonts', express.static(__dirname + '/fonts'));
     
-var motor1Pin = new Gpio(17, {mode: Gpio.OUTPUT}), //M1
-    motor2Pin = new Gpio(27, {mode: Gpio.OUTPUT}), //M2
-    motor3Pin = new Gpio(22, {mode: Gpio.OUTPUT}), //M3
-    motor4Pin = new Gpio(23, {mode: Gpio.OUTPUT}), //M4
+//pigpio.configureClock(4, pigpio.CLOCK_PWM);
+var motor1Pin = new Gpio(17, {mode: Gpio.PWM_OUTPUT}), //M1
+    motor2Pin = new Gpio(27, {mode: Gpio.PWM_OUTPUT}), //M2
+    motor3Pin = new Gpio(22, {mode: Gpio.PWM_OUTPUT}), //M3
+    motor4Pin = new Gpio(23, {mode: Gpio.PWM_OUTPUT}), //M4
     LandingGearPin = new Gpio(24, {mode: Gpio.OUTPUT}), //Landing Gear Control box
-    pwm_freq = 1600,
+    pwm_freq = 600,
     pwm_range = 100,
     throttle = 0;
     
@@ -111,7 +113,7 @@ var madgwick = new AHRS({
     /*
      * The sample interval, in Hz.
      */
-    sampleInterval: 20,
+    sampleInterval: 10,
 
     /*
      * Choose from the `Madgwick` or `Mahony` filter.
@@ -122,7 +124,7 @@ var madgwick = new AHRS({
      * The filter noise value, smaller values have
      * smoother estimates, but have higher latency. was 3
      */
-    beta: 1.5
+    beta: 0.1
 });
 
 //setup GPS daemon service
@@ -183,7 +185,7 @@ landing_gear.WakeGear(LandingGearPin);
 //IMU
 IMU.SetUpdateInterval(mpu9255_obj,madgwick);
 //ADC by sending control byte
-i2c1.i2cWriteSync(0x48,1,0x40);
+i2c1.i2cWriteSync(0x48,1,0x04);
 ///////////////////////////////////////////////////////
 
 //////////////////////////////////////////////////////////////////////////////
@@ -203,12 +205,12 @@ var heading = 0;//0 = ascending, 1 = descending
 function Battery() {
     setTimeout(function() {
         //check battery voltage
-        ADC.PCF8591_Data(i2c1,0x41,function(voltage) {
+        ADC.PCF8591_Data(i2c1,0x01,function(voltage) {
             if (voltage) {
                 //complete calculation of actual battery life
-                var vmax = 2.20, vmin = 1.90;
+                var vmax = 2.4, vmin = 1.7;
                 var vdiff = vmax - vmin;
-                voltage = voltage * (3.3 / 255) - 0.25;
+                voltage = voltage * (3.3 / 255);
                 var percent = Math.round((1 - ((vmax - voltage) / vdiff)) * 100);
                 if (percent > 100) { percent = 100;}
                 if (percent < 0) { percent = 0;}
@@ -226,7 +228,7 @@ function Battery() {
 function GroundDistance() {
     setTimeout(function() {
         //Distance from ground (ultrasonic sensor)
-        ADC.PCF8591_Data(i2c1,0x40,function(distance) {
+        ADC.PCF8591_Data(i2c1,0x00,function(distance) {
             if (distance) {
                 /////////////////////////////
                 //add in data logging to log file with timestamp
@@ -355,40 +357,40 @@ function Stabilize() {
             master_throttle.M4 = 0;
         }
 
-        if (master_throttle.M1 > 99) {
-            master_throttle.M1 = 100;
+        if (master_throttle.M1 >= 100) {
+            master_throttle.M1 = 99;
         }
-        if (master_throttle.M2 > 99) {
-            master_throttle.M2 = 100;
+        if (master_throttle.M2 >= 100) {
+            master_throttle.M2 = 99;
         }
-        if (master_throttle.M3 > 99) {
-            master_throttle.M3 = 100;
+        if (master_throttle.M3 >= 100) {
+            master_throttle.M3 = 99;
         }
-        if (master_throttle.M4 > 99) {
-            master_throttle.M4 = 100;
+        if (master_throttle.M4 >= 100) {
+            master_throttle.M4 = 99;
         }
 
         //output status to client browser
-        //io.emit("drone_status",{id:"motor_throttle", name:"motor_unit", throttle: master_throttle.Unit.toFixed(1)});
-        io.emit("drone_status",{id:"motor_throttle", name:"motor1", throttle: master_throttle.M1.toFixed(1)});
-        io.emit("drone_status",{id:"motor_throttle", name:"motor2", throttle: master_throttle.M2.toFixed(1)});
-        io.emit("drone_status",{id:"motor_throttle", name:"motor3", throttle: master_throttle.M3.toFixed(1)});
-        io.emit("drone_status",{id:"motor_throttle", name:"motor4", throttle: master_throttle.M4.toFixed(1)});
+//        io.emit("drone_status",{id:"motor_throttle", name:"motor_unit", throttle: master_throttle.Unit.toFixed(1)});
+//        io.emit("drone_status",{id:"motor_throttle", name:"motor1", throttle: master_throttle.M1.toFixed(1)});
+//        io.emit("drone_status",{id:"motor_throttle", name:"motor2", throttle: master_throttle.M2.toFixed(1)});
+//        io.emit("drone_status",{id:"motor_throttle", name:"motor3", throttle: master_throttle.M3.toFixed(1)});
+//        io.emit("drone_status",{id:"motor_throttle", name:"motor4", throttle: master_throttle.M4.toFixed(1)});
 
         //Set each motor speed 
-//        SetMotorSpeed(motor1Pin,master_throttle.M1,function(throttle){
-//            io.emit("drone_status",{id:"motor_throttle", name:"motor1", throttle: master_throttle.M1.toFixed(1)});
-//        });
-//        SetMotorSpeed(motor2Pin,motor2_throttle,function(throttle){
-//            io.emit("drone_status",{id:"motor_throttle", name:"motor2", throttle: master_throttle.M2.toFixed(1)});
-//        });
-//        SetMotorSpeed(motor3Pin,motor3_throttle,function(throttle){
-//            io.emit("drone_status",{id:"motor_throttle", name:"motor3", throttle: master_throttle.M3.toFixed(1)});
-//        });
-//        SetMotorSpeed(motor4Pin,motor4_throttle,function(throttle){
-//            io.emit("drone_status",{id:"motor_throttle", name:"motor4", throttle: master_throttle.M4.toFixed(1)});
-//        });
-    },100);
+        SetMotorSpeed(motor1Pin,master_throttle.M1,function(){
+            io.emit("drone_status",{id:"motor_throttle", name:"motor1", throttle: master_throttle.M1.toFixed(1)});
+        });
+        SetMotorSpeed(motor2Pin,master_throttle.M2,function(){
+            io.emit("drone_status",{id:"motor_throttle", name:"motor2", throttle: master_throttle.M2.toFixed(1)});
+        });
+        SetMotorSpeed(motor3Pin,master_throttle.M3,function(){
+            io.emit("drone_status",{id:"motor_throttle", name:"motor3", throttle: master_throttle.M3.toFixed(1)});
+        });
+        SetMotorSpeed(motor4Pin,master_throttle.M4,function(){
+            io.emit("drone_status",{id:"motor_throttle", name:"motor4", throttle: master_throttle.M4.toFixed(1)});
+        });
+    },50);
     return;
 }
 
@@ -477,92 +479,114 @@ function HoverTest() {
             io.emit("drone_status",{id:"motor_throttle", name:"motor1", throttle: master_throttle.Unit.toFixed(1)});
             io.emit("drone_status",{id:"motor_throttle", name:"motor2", throttle: master_throttle.Unit.toFixed(1)});
             io.emit("drone_status",{id:"motor_throttle", name:"motor3", throttle: master_throttle.Unit.toFixed(1)});
-            io.emit("drone_status",{id:"motor_throttle", name:"motor4", throttle: master_throttle.Unit.toFixed(1)});
+            io.emit("drone_status",{id:"motor_throttle", name:"motor4", throttle: master_throttle.Unit.toFixed(1)});            
         }
     }, 500);
     return;
 }
 
 ////////////////////////////////////////////////////////////////////
-////////////////////// Initial Data Readings //////////////////////////
+//////////////////////////// Quad Loop Activity ////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
-
-//get first battery reading
-setTimeout(function() {
+setInterval(function() {
+    GroundDistance();
     Battery();
 }, 1000);
 
-//get first ground distance reading
-setTimeout(function() {
-    GroundDistance();
-}, 2000);
-
-//get first altitude reading
-setTimeout(function(){
-    Altitude();
-}, 3000);
-
-//get first orientation reading
-setTimeout(function(){
-    Orientation();
-}, 4000);
-
-
-////////////////////////////////////////////////////////////////////
-//////////////////////////// Routine Checks //////////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
-function RoutineChecks() {
-//    setTimeout(function(){
-//        Orientation();
-//    }, 100);
-    setTimeout(function(){
-        GPS();
-        if (gps_latitude === undefined && timer_GPS.isRunning() === false) {
-            gps_time_elapsed = 0;
-            timer_GPS.start();
-        } else if (gps_latitude === undefined && timer_GPS.isRunning() === true) {
-            timer_GPS.stop();
-            gps_time_elapsed = gps_time_elapsed + timer_GPS.seconds();
-            timer_GPS.start();
-        } else if (gps_latitude !== undefined && timer_GPS.isRunning() === true) {
-            timer_GPS.stop();
-            timer_GPS.clear();
-        }
-        io.emit("gps",{lat:gps_latitude, lon:gps_longitude, alt:gps_altitude, speed:gps_speed, timer:gps_time_elapsed});
-    }, 50);
-    setTimeout(function() {
-        Battery();
-    }, 150);
-    setTimeout(function() {
-        GroundDistance();
-    }, 250);
-    setTimeout(function(){
-        Altitude();
-    }, 350);
-}
-
-////////////////////////////////////////////////////////////////////
-//////////////////////////// Quad Activity ////////////////////////////
-/////////////////////////////////////////////////////////////////////////////
 setInterval(function(){
-    RoutineChecks();
-}, 1000);
+    Altitude();
+}, 350);
+
+//    setTimeout(function(){
+//        GPS();
+//        if (gps_latitude === undefined && timer_GPS.isRunning() === false) {
+//            gps_time_elapsed = 0;
+//            timer_GPS.start();
+//        } else if (gps_latitude === undefined && timer_GPS.isRunning() === true) {
+//            timer_GPS.stop();
+//            gps_time_elapsed = gps_time_elapsed + timer_GPS.seconds();
+//            timer_GPS.start();
+//        } else if (gps_latitude !== undefined && timer_GPS.isRunning() === true) {
+//            timer_GPS.stop();
+//            timer_GPS.clear();
+//        }
+//        io.emit("gps",{lat:gps_latitude, lon:gps_longitude, alt:gps_altitude, speed:gps_speed, timer:gps_time_elapsed});
+//    }, 50);
+//    
+//setInterval(function() {
+//    console.log(motor1Pin.getPwmDutyCycle()+","+motor1Pin.getPwmFrequency()+","+motor1Pin.getPwmRange());
+//}, 1000);
+
+setInterval(function() {
+    Orientation();
+    //stabilize drone if pitch or roll are off by more than 3.5 degrees
+    if (Math.abs(pitch) > 5 || Math.abs(roll) > 5) {
+        io.emit("drone_status",{id:"Stablizing", pitch:Math.abs(pitch), roll: Math.abs(roll)});
+        Stabilize();
+    }
+}, 300);
 ///////////////////////////////////////////////////////////////////////////
 /////////// When client makes request, fulfill and give response////////
 ///////////////////////////////////////////////////////////////////////////////
 io.on('connection', function (client) {// Web Socket Connection    
     client.on('motor_arm', function() { //get button status from client
         motor_controls.ArmMotor(motor1Pin,function(){
-            io.emit("drone_status","Motor 1 Armed!");
+            io.emit("drone_status",{id:"motor_status",message:"Motor 1 Armed!"});
         });
         motor_controls.ArmMotor(motor2Pin,function(){
-            io.emit("drone_status","Motor 2 Armed!");
+            io.emit("drone_status",{id:"motor_status",message:"Motor 2 Armed!"});
         });
         motor_controls.ArmMotor(motor3Pin,function(){
-            io.emit("drone_status","Motor 3 Armed!");
+            io.emit("drone_status",{id:"motor_status",message:"Motor 3 Armed!"});
         });
         motor_controls.ArmMotor(motor4Pin,function(){
-            io.emit("drone_status","Motor 4 Armed!");
+            io.emit("drone_status",{id:"motor_status",message:"Motor 4 Armed!"});
+        });
+    });
+    
+    //disarm all motors to prevent accidental running
+    client.on('motor_disarm', function() {
+        //Update motor throttle speed object (for all motors)
+        master_throttle.Unit = 0;
+        master_throttle.M1 = master_throttle.Unit;
+        master_throttle.M2 = master_throttle.Unit;
+        master_throttle.M3 = master_throttle.Unit;
+        master_throttle.M4 = master_throttle.Unit;
+        //Change actual motor speeds based on user setting and update viewing page
+        motor_controls.DisarmMotor(motor1Pin,function(){
+            io.emit("drone_status",{id:"motor_status",message:"Motor 1 Disarmed!"});
+        });
+        motor_controls.DisarmMotor(motor2Pin,function(){
+            io.emit("drone_status",{id:"motor_status",message:"Motor 2 Disarmed!"});
+        });
+        motor_controls.DisarmMotor(motor3Pin,function(){
+            io.emit("drone_status",{id:"motor_status",message:"Motor 3 Disarmed!"});
+        });
+        motor_controls.DisarmMotor(motor4Pin,function(){
+            io.emit("drone_status",{id:"motor_status",message:"Motor 4 Disarmed!"});
+        });
+    });
+    
+    //run all motors at user selected throttle
+    client.on('master_throttle', function(throttle) {
+        //Update motor throttle speed object (for all motors)
+        master_throttle.Unit = throttle;
+        master_throttle.M1 = master_throttle.Unit;
+        master_throttle.M2 = master_throttle.Unit;
+        master_throttle.M3 = master_throttle.Unit;
+        master_throttle.M4 = master_throttle.Unit;
+        //Change actual motor speeds based on user setting and update viewing page
+        motor_controls.SetMotorSpeed(motor1Pin,master_throttle.M1,function(){
+            io.emit("drone_status",{id:"motor_throttle", name:"motor1", throttle: master_throttle.M1.toFixed(1)});
+        });
+        motor_controls.SetMotorSpeed(motor2Pin,master_throttle.M2,function(){
+            io.emit("drone_status",{id:"motor_throttle", name:"motor2", throttle: master_throttle.M2.toFixed(1)});
+        });
+        motor_controls.SetMotorSpeed(motor3Pin,master_throttle.M3,function(){
+            io.emit("drone_status",{id:"motor_throttle", name:"motor3", throttle: master_throttle.M3.toFixed(1)});
+        });
+        motor_controls.SetMotorSpeed(motor4Pin,master_throttle.M4,function(){
+            io.emit("drone_status",{id:"motor_throttle", name:"motor4", throttle: master_throttle.M4.toFixed(1)});
         });
     });
   

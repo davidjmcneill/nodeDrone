@@ -3,7 +3,8 @@
 //This function is used to setup motor in armed state
 //Sends high throttle, followed by low throttle as per spec
 function ArmMotor(motor_pin,cb) {
-    var pwm_freq = 1600,pwm_range = 100,throttle = 99;
+    //maximum frequency of ESC by spec = 600Hz
+    var pwm_freq = 600,pwm_range = 100,throttle = 99;
 
     motor_pin.pwmFrequency(pwm_freq);
     motor_pin.pwmRange(pwm_range);
@@ -15,26 +16,41 @@ function ArmMotor(motor_pin,cb) {
         motor_pin.pwmWrite(throttle);
         cb();
     }, 2500);
-    
+}
+
+//Disarm motors to prevent accidental running
+function DisarmMotor(motor_pin,cb) {
+    //this condition disarms motors
+    var pwm_freq = 1600,pwm_range = 120,throttle = 120;
+
+    motor_pin.pwmFrequency(pwm_freq);
+    motor_pin.pwmRange(pwm_range);
+    motor_pin.pwmWrite(throttle);
+    cb();
 }
 
 //Set specified motor to specified speed
 function SetMotorSpeed(motor_pin,throttle,cb) {
-    var pwm_freq = 1600, pwm_range = 100;
+    //maximum frequency of ESC by spec = 600Hz
+    //default frequency = 800Hz
+    //default maximum range = 255
+    var pwm_freq = 600,pwm_range = 100;
 
-    if (throttle >= 100) {
+    if (throttle > 100) {
         throttle = 99;
     }
     motor_pin.pwmFrequency(pwm_freq);
     motor_pin.pwmRange(pwm_range);
     motor_pin.pwmWrite(throttle);
+    
     cb(throttle);
 }
 
 //Motor throttle climbs from 0 to 100% then 100 - 0%
 //Increment scale is 10% every 1 second
 function RunMotorTest(motor_pin,cb) {
-    var pwm_freq = 1600,pwm_range = 100,throttle = 0;
+    //maximum frequency of ESC by spec = 600Hz
+    var pwm_freq = 600,pwm_range = 100,throttle = 0;
 
     //throttle up increment 10% every second
     var up = setInterval(function() {
@@ -58,10 +74,12 @@ function RunMotorTest(motor_pin,cb) {
 }
 
 module.exports.ArmMotor = ArmMotor;
+module.exports.DisarmMotor = DisarmMotor;
 module.exports.SetMotorSpeed = SetMotorSpeed;
 module.exports.RunMotorTest = RunMotorTest;
 //lowest duty cycle where rotor moves = 22, highest = 99
 //throttle range = 0 - 100 (99)
+//throttle > 100 disarms motors
 
 
 

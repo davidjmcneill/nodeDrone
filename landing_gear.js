@@ -1,6 +1,4 @@
 //This module is used to deploy and retract landing gear arms
-var pigpio = require('pigpio'),
-    Gpio = pigpio.Gpio;
 
 function WakeGear(pin) {
     pin.servoWrite(1600);//must do this first for short time, not sure why
