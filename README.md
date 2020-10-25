@@ -31,6 +31,10 @@ My choice:
 My choice: 
 
 ## Package List - Software
+### Before installing S/W Below!
+> sudo apt-get update
+
+> sudo apt-get upgrade
 ### Install NodeJS Pack
 1. Install Node
 > sudo apt-get install nodejs
@@ -53,10 +57,17 @@ My choice:
 > npm install ahrs
 - i2c-bus
 > npm install i2c-bus
-- raspi-sensors
-> npm install raspi-sensors
+- bmp180 (altitude)
+> npm install bmp180-sensor
 - pigpio
-> npm install pigpio
+> 1. sudo apt-get install pigpio
+> 2. npm install pigpio
+- IMU (MPU9255)
+> npm install sleep
+> npm install extend
+- GPS
+> npm install node-gpsd
+> npm install timer-node
 
 ## Running the tests
 
