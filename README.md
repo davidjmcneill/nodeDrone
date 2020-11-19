@@ -4,6 +4,13 @@ Autonomous Drone - RaspberryPi - NodeJS
 
 A fully autonomous drone using the Nodejs framework. Drone broadcasts local Wi-Fi connection for user to connect and provide instructions through a web interface application. 
 
+## To-Do List
+- Solder in new motor leads
+- Test each motor throttle ramp up and ramp down
+- Remove RPi2 and replace with RPi Zero W (solder wires)
+- Wire GPS in using UART on RPi (no longer use USB) https://learn.adafruit.com/adafruit-ultimate-gps-on-the-raspberry-pi/using-uart-instead-of-usb
+- Test website function on mobile browser
+
 ## Prerequisites
 
 ## Parts List - Hardware
@@ -69,20 +76,6 @@ My choice:
 > npm install node-gpsd
 > npm install timer-node
 
-## Running the tests
-
-### Break down into end to end tests
-
-## Deployment
-
 ## Built With
 
-## Contributing
-
 ## Versioning
-
-## Authors
-
-## License
-
-## Acknowledgments
