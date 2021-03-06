@@ -6,6 +6,8 @@ A fully autonomous drone using the Nodejs framework. Drone broadcasts local Wi-F
 
 ## To-Do List
 - Fine tune motor throttle settings
+- Integrate wireless package from npm
+- Log file creation and updating
 - Wire GPS in using UART on RPi (no longer use USB) https://learn.adafruit.com/adafruit-ultimate-gps-on-the-raspberry-pi/using-uart-instead-of-usb
 - Test website function on mobile browser
 - Confirm stabilizing function works in all situations
