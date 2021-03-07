@@ -5,6 +5,8 @@ Autonomous Drone - RaspberryPi - NodeJS
 A fully autonomous drone using the Nodejs framework. Drone broadcasts local Wi-Fi connection for user to connect and provide instructions through a web interface application. 
 
 ## To-Do List
+- Install new battery
+- Install new PDB for 6s battery
 - Fine tune motor throttle settings
 - Integrate wireless package from npm
 - Log file creation and updating
