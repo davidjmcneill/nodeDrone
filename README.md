@@ -47,12 +47,13 @@ My choice:
 > sudo apt-get upgrade
 ### Install NodeJS Pack
 1. Install Node
+> Use this method! https://danidudas.medium.com/how-to-install-node-js-and-npm-on-any-raspberry-pi-5a82acdfeefc
 > sudo apt-get install nodejs
-2. Install N for easy node version control
+3. Install N for easy node version control
 > sudo npm install -g n
-3. Install LTS latest official release
+4. Install LTS latest official release
 > sudo n lts
-4. Confirm Node installed
+5. Confirm Node installed
 > node -v
 ### Raspi-config
 > sudo raspi-config
