@@ -6,7 +6,6 @@ A fully autonomous drone using the Nodejs framework. Drone broadcasts local Wi-F
 
 ## To-Do List
 - Install new battery
-- Install new PDB for 6s battery
 - Fine tune motor throttle settings
 - Integrate wireless package from npm (https://www.npmjs.com/package/wireless-tools)
 - Log file creation and updating
@@ -18,15 +17,15 @@ A fully autonomous drone using the Nodejs framework. Drone broadcasts local Wi-F
 
 ## Parts List - Hardware
 ### Quad Frame
-My choice: Tarot 650 Sport
+Tarot 650 Sport
 ### Main Controller/Processor
-My choice: Raspberry Pi Zero W
+Raspberry Pi Zero W
 ### IMU Sensor
-My choice:
+Waveshare 10 DOF IMU Sensor, Low Power
 ### PDB
-My choice: Raspberry Pi Zero W
+6S battery support, Current sensing
 ### GPS Board
-My choice: Adafruit Ultimate GPS Breakout Board
+Adafruit Ultimate GPS Breakout Board
 ### 4 Props
 My choice: 
 ### 4 Brushless Motors
