@@ -2,12 +2,13 @@
 //from the PCF8591 board
 
 function PCF8591_Data(i2c1,hex_addr,cb) {
-    var PCF8591_ADDR = 0x48;var buff=Buffer.alloc(4);
+    var PCF8591_ADDR = 0x48;
+    var buff=Buffer.alloc(4);
     i2c1.readI2cBlock(PCF8591_ADDR,hex_addr,4,buff, function (err,bytesread,buff) {
         if (err) {
             console.log(err);
         }
-        console.log(buff[3]);
+        //console.log(buff[3]);
         //console.log(bytesread);
         //return data through call back
         cb(buff[3]);

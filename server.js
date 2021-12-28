@@ -13,7 +13,7 @@ var io = require('socket.io')(server, {
 var fs = require('fs'); 
 var pigpio = require('pigpio');
 var Gpio = pigpio.Gpio;
-var RaspiSensors = require('raspi-sensors');
+var bmp180 = require('bmp180-sensor');
 var i2c = require('i2c-bus');
 var AHRS = require('ahrs');
 var mpu9255 = require('./mpu9255.js');
@@ -27,52 +27,45 @@ app.use('/images', express.static(__dirname + '/images'));
 //use font files located in font directory
 app.use('/fonts', express.static(__dirname + '/fonts'));
     
-//pigpio.configureClock(4, pigpio.CLOCK_PWM);
+pigpio.configureClock(5, pigpio.CLOCK_PWM);
 var motor1Pin = new Gpio(17, {mode: Gpio.PWM_OUTPUT}), //M1
     motor2Pin = new Gpio(27, {mode: Gpio.PWM_OUTPUT}), //M2
     motor3Pin = new Gpio(22, {mode: Gpio.PWM_OUTPUT}), //M3
     motor4Pin = new Gpio(23, {mode: Gpio.PWM_OUTPUT}), //M4
     LandingGearPin = new Gpio(24, {mode: Gpio.OUTPUT}), //Landing Gear Control box
-    pwm_freq = 600,
-    pwm_range = 100,
     throttle = 0;
-    
-var BMP180_obj = new RaspiSensors.Sensor({
-    type    : "BMP180",
-    address : 0X77
-}, "Altitude Sensor");  // An additional name can be provided after the sensor's configuration
 
 // These values were generated using calibrate_mag.js - you will want to create your own.
 var MAG_CALIBRATION = {
-    min: { x: -81.015625, y: -35.859375, z: -53.0078125 },
-    max: { x: 82.20703125, y: 136.265625, z: 131.3671875 },
-    offset: { x: 0.595703125, y: 50.203125, z: 39.1796875 },
+    min: { x: -76.25, y: -28.6875, z: -49.55078125 },
+    max: { x: 71.484375, y: 132.6796875, z: 118.69140625 },
+    offset: { x: -2.3828125, y: 51.99609375, z: 34.5703125 },
     scale: {
-        x: 1.592066531051813,
-        y: 1.5097244916485113,
-        z: 1.409417372881356
+        x: 1.6155473294553147,
+        y: 1.4790607601065118,
+        z: 1.4186208497794288
     }
 };
 
 // These values were generated using calibrate_gyro.js - you will want to create your own.
 // NOTE: These are temperature dependent.
 var GYRO_OFFSET = {
-    x: 0.48407633587786203,
-    y: -0.1822290076335877,
-    z: 0.6753740458015269
+    x: 0.29036641221374027,
+    y: -0.0749160305343511,
+    z: 0.6830992366412217 
 };
 
 // These values were generated using calibrate_accel.js - you will want to create your own.
 var ACCEL_CALIBRATION = {
     offset: {
-        x: 0.0026436360677083333,
-        y: 0.0690252685546875,
-        z: 0.0532501220703125
+        x: -0.004286092122395833,
+        y: 0.04193501790364584,
+        z: 0.11595113118489583
     },
     scale: { 
-        x: [ 0.9910611979166667, -1.0054142252604166 ],
-        y: [ -0.9826920572916666, 1.0140657552083334 ],
-        z: [ -0.9496875, 1.0560416666666668 ] 
+        x: [ -1.00030029296875, 0.9978092447916667 ],
+        y: [ -0.9794099934895834, 1.0185904947916666 ],
+        z: [ -0.9015592447916667, 1.10750244140625 ]
     }
 };
 
@@ -113,7 +106,7 @@ var madgwick = new AHRS({
     /*
      * The sample interval, in Hz.
      */
-    sampleInterval: 10,
+    sampleInterval: 20,
 
     /*
      * Choose from the `Madgwick` or `Mahony` filter.
@@ -124,7 +117,7 @@ var madgwick = new AHRS({
      * The filter noise value, smaller values have
      * smoother estimates, but have higher latency. was 3
      */
-    beta: 0.1
+    beta: 3
 });
 
 //setup GPS daemon service
@@ -154,9 +147,9 @@ var listener = new gpsd.Listener({
 });
 
 //setup time elapsed objects
-const timer = new Timer('test-timer');
-const timer1 = new Timer('test-timer');
-const timer_GPS = new Timer('test-timer');
+//const timer = new Timer('test-timer');
+//const timer1 = new Timer('test-timer');
+//const timer_GPS = new Timer('test-timer');
 var gps_time_elapsed = 0;
 
 //Initialize i2c communication bus
@@ -185,7 +178,7 @@ landing_gear.WakeGear(LandingGearPin);
 //IMU
 IMU.SetUpdateInterval(mpu9255_obj,madgwick);
 //ADC by sending control byte
-i2c1.i2cWriteSync(0x48,1,0x04);
+i2c1.i2cWriteSync(0x48,1,new Buffer.alloc(0x04));
 ///////////////////////////////////////////////////////
 
 //////////////////////////////////////////////////////////////////////////////
@@ -243,7 +236,7 @@ function GroundDistance() {
 //Get current altitude and send to listeners
 function Altitude() {
     setTimeout(function() {
-        IMU.GetAltitude(BMP180_obj,function(pressure) {
+        IMU.GetAltitude(bmp180,function(pressure) {
             if (pressure) {
                 current_altitude = 44330 * (1 - Math.pow((pressure/100)/1013.25,(1/5.255)));
                 /////////////////////////////
@@ -280,7 +273,7 @@ function GPS() {
 //Get current orientation and send to listeners
 function Orientation() {
     setTimeout(function() {
-        IMU.GetOrientation(mpu9255_obj,madgwick,function(pyr) {
+        IMU.GetOrientation(madgwick,function(pyr) {
             if (pyr) {
                 //Determine Cardinal Directions from heading 
                 //East = 0 degrees, North = -90 degrees, South = 90 degrees, West = 180 degrees
@@ -339,10 +332,10 @@ function Stabilize() {
         yaw_change = (Kp*error_z) + (Ki*inv_dt*error_z);
 
         //Adjust motor thottle based on current state
-        master_throttle.M1 = master_throttle.Unit - roll_change - pitch_change;
-        master_throttle.M2 = master_throttle.Unit + roll_change + pitch_change;
-        master_throttle.M3 = master_throttle.Unit + roll_change - pitch_change;
-        master_throttle.M4 = master_throttle.Unit - roll_change + pitch_change; 
+        master_throttle.M1 = Math.round(master_throttle.Unit - roll_change - pitch_change);
+        master_throttle.M2 = Math.round(master_throttle.Unit + roll_change + pitch_change);
+        master_throttle.M3 = Math.round(master_throttle.Unit + roll_change - pitch_change);
+        master_throttle.M4 = Math.round(master_throttle.Unit - roll_change + pitch_change); 
 
         if (master_throttle.M1 <= 0) {
             master_throttle.M1 = 0;
@@ -378,18 +371,18 @@ function Stabilize() {
 //        io.emit("drone_status",{id:"motor_throttle", name:"motor4", throttle: master_throttle.M4.toFixed(1)});
 
         //Set each motor speed 
-        SetMotorSpeed(motor1Pin,master_throttle.M1,function(){
-            io.emit("drone_status",{id:"motor_throttle", name:"motor1", throttle: master_throttle.M1.toFixed(1)});
-        });
-        SetMotorSpeed(motor2Pin,master_throttle.M2,function(){
-            io.emit("drone_status",{id:"motor_throttle", name:"motor2", throttle: master_throttle.M2.toFixed(1)});
-        });
-        SetMotorSpeed(motor3Pin,master_throttle.M3,function(){
-            io.emit("drone_status",{id:"motor_throttle", name:"motor3", throttle: master_throttle.M3.toFixed(1)});
-        });
-        SetMotorSpeed(motor4Pin,master_throttle.M4,function(){
-            io.emit("drone_status",{id:"motor_throttle", name:"motor4", throttle: master_throttle.M4.toFixed(1)});
-        });
+//        motor_controls.SetMotorSpeed(motor1Pin,master_throttle.M1,function(){
+//            io.emit("drone_status",{id:"motor_throttle", name:"motor1", throttle: master_throttle.M1});
+//        });
+//        motor_controls.SetMotorSpeed(motor2Pin,master_throttle.M2,function(){
+//            io.emit("drone_status",{id:"motor_throttle", name:"motor2", throttle: master_throttle.M2});
+//        });
+//        motor_controls.SetMotorSpeed(motor3Pin,master_throttle.M3,function(){
+//            io.emit("drone_status",{id:"motor_throttle", name:"motor3", throttle: master_throttle.M3});
+//        });
+//        motor_controls.SetMotorSpeed(motor4Pin,master_throttle.M4,function(){
+//            io.emit("drone_status",{id:"motor_throttle", name:"motor4", throttle: master_throttle.M4});
+//        });
     },50);
     return;
 }
@@ -403,8 +396,8 @@ function HoverTest() {
     var hover_test = setInterval(function() {
         Orientation();
         console.log(Math.abs(pitch)+", "+Math.abs(roll));
-        //stabilize drone if pitch or roll are off by more than 3.5 degrees
-        if (Math.abs(pitch) > 3.5 || Math.abs(roll) > 3.5) {
+        //stabilize drone if pitch or roll are off by more than 5 degrees
+        if (Math.abs(pitch) > 5 || Math.abs(roll) > 5) {
             console.log("stabilizing..");
             Stabilize();
         } else {
@@ -489,8 +482,9 @@ function HoverTest() {
 //////////////////////////// Quad Loop Activity ////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 setInterval(function() {
-    GroundDistance();
-    Battery();
+    //GroundDistance();
+    //Battery();
+    //Current Sensor: Max.range: 184A · 3.3V ADC · Scale the output voltage to milliamps (1/10th mV/A): 179
 }, 1000);
 
 setInterval(function(){
@@ -519,12 +513,12 @@ setInterval(function(){
 
 setInterval(function() {
     Orientation();
-    //stabilize drone if pitch or roll are off by more than 3.5 degrees
-    if (Math.abs(pitch) > 5 || Math.abs(roll) > 5) {
-        io.emit("drone_status",{id:"Stablizing", pitch:Math.abs(pitch), roll: Math.abs(roll)});
+    //stabilize drone if pitch or roll are off by more than 10 degrees
+    if (Math.abs(pitch) > 10 || Math.abs(roll) > 10) {
+        io.emit("drone_status",{id:"Stabilizing", pitch:Math.abs(pitch), roll: Math.abs(roll)});
         Stabilize();
     }
-}, 300);
+}, 200);
 ///////////////////////////////////////////////////////////////////////////
 /////////// When client makes request, fulfill and give response////////
 ///////////////////////////////////////////////////////////////////////////////

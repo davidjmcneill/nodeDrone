@@ -11,42 +11,50 @@ function SetUpdateInterval(mpu,madgwick) {
 
         setInterval(function(){
             mag = mpu.ak8963.getMagAttitude();
-        }, 50);
-        setInterval(function(){
             accel = mpu.getAccel();
             gyro = mpu.getGyro();
-        }, 50);
-
+        }, 200);    
         setInterval(function(){
             madgwick.update(gyro[0]*(Math.PI / 180), gyro[1]*(Math.PI / 180), gyro[2]*(Math.PI / 180), accel[0], accel[1], accel[2], mag[0], mag[1], mag[2]);
-        }, 200);
+        }, 50);
     }
 }
 
-function GetOrientation(mpu,madgwick,cb) {   
-    if (mpu.initialize()) {   
-        var pyr_degrees = madgwick.getEulerAnglesDegrees();//contains pitch, yaw and roll in degrees
+function GetOrientation(madgwick,cb) {     
+    var pyr_degrees = madgwick.getEulerAnglesDegrees();//contains pitch, yaw and roll in degrees
 
-        //console.log("Heading: %f\u00B0 ("+direction+")",Math.round(pyr["heading"]));
-        cb(pyr_degrees);
-    }
+    //console.log("Heading: %f\u00B0 ("+direction+")",Math.round(pyr["heading"]));
+    cb(pyr_degrees);
 }
 
 function GetAltitude(BMP180,cb) {
-    BMP180.fetch(function(err, data) {
-        if (err) {
-            //future return error to log
-            cb(err);
-        } else if (data) {
+    async function readBmp180() {
+        const sensor = await bmp180({
+            address: 0x77,
+            mode: 1
+        });
 
-            // Log the pressure value
-            if (data.type === 'Pressure') {
-                cb(data.value);
-                //console.log(data);
-                //console.log(data.value);
-            }
-        }
-    });
+    const data = await sensor.read();
+
+    console.log(data);
+    cb(data.pressure);
+
+    await sensor.close();
+}
+//    BMP180.fetch(function(err, data) {
+//        if (err) {
+//            //future return error to log
+//            cb(err);
+//        } else if (data) {
+//
+//            // Log the pressure value
+//            if (data.type === 'Pressure') {
+//                cb(data.value);
+//                //console.log(data);
+//                //console.log(data.value);
+//            }
+//        }
+//    });
 }
 
 module.exports.SetUpdateInterval = SetUpdateInterval;
