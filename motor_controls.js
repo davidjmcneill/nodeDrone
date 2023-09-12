@@ -31,20 +31,7 @@ function DisarmMotor(motor_pin,cb) {
 
 //Set specified motor to specified speed
 function SetMotorSpeed(motor_pin,throttle,cb) {
-    //maximum frequency of ESC by spec = 600Hz
-    //default frequency = 800Hz
-    var pwm_freq = 600,pwm_range = 250;
-
-    if (throttle < 0 ) {
-        throttle = 0;
-    }
-    if (throttle >= 250) {
-        throttle = 240;
-    }
-    motor_pin.pwmFrequency(pwm_freq);
-    motor_pin.pwmRange(pwm_range);
-    motor_pin.pwmWrite(throttle);
-    
+    motor_pin.servoWrite(1000);//1000 -> lifted off almost killed me at my desk
     cb(throttle);
 }
 
